@@ -20,10 +20,6 @@ class Game():
     def start(self):
         # start render loop
         while self.running == True:
-            if(self.active_screen == -1):
-                blog.error("No running screen. Abort.")
-                break
-            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
@@ -47,11 +43,13 @@ class newscreen(Screen):
     def __init__(self):
         Screen.__init__(self)
         super(newscreen, self)._listen("render", self.render)
-    def render():
-        print("hello")
+    def render(self):
+        print("hello rendering from 'newscreen'")
 
 g = Game()
-g.addScreen(newscreen())
+ns = newscreen()
+ns.active = True
+g.addScreen(ns)
 g.start()
 
 
