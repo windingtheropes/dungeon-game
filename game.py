@@ -23,7 +23,6 @@ class Game():
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
-            # screen.fill((255,255,255))
 
             # render the active screen
             for s in self.screens:

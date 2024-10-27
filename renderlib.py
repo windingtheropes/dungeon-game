@@ -1,5 +1,7 @@
 import types
 import blogger
+import time
+import random
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
 class Renderer():
     def __init__(self):
@@ -13,7 +15,7 @@ class Renderer():
         if eventName in self.listeners.keys() and fun != None and type(fun) == types.MethodType:
             self.listeners[eventName] = fun
         else:
-            blogger.blog.warn(f"Function passed for {eventName} listener is not a function, or event does not exist.")
+            blogger.blog.warn(f"{self.__class__.__name__}) Function passed for {eventName} listener is not a function, or event does not exist.")
     # universal generic functions trigger registered listeners. this is the function that is run by the layer 1
     def _event(self, e):
         if(self.listeners["event"] != None):
@@ -30,7 +32,7 @@ class Layer(Renderer):
     def _render(self):
         if(self.listeners["render"] != None):
             if(self.screen == None):
-                blogger.blog().warn("Layer not initialized to a screen, not rendering.")
+                blogger.blog().warn(f"{self.__class__.__name__}) Layer not initialized to a screen, not rendering.")
                 return
             else:
                 self.listeners["render"](self.screen)
@@ -41,11 +43,11 @@ class Screen(Renderer):
         self.layers = []
         self.surface = surface;
         if(default_methods == True):
-            blogger.blog().info("Default methods are enabled. Listeners are ignored in this class.")
+            blogger.blog().info(f"({self.__class__.__name__}) Default methods are enabled. Listeners are ignored in this class.")
         self.default_methods = default_methods
     def add_layer(self, layer: Layer):
         if layer in self.layers:
-            blogger.blog().warn("Layer already registered.")
+            blogger.blog().warn(f"{self.__class__.__name__}) Layer already registered.")
         else:
             layer.screen = self.surface
             self.layers.append(layer)
