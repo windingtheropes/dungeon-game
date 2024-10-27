@@ -1,6 +1,6 @@
 import pygame
 import blogger
-from screen import Screen
+from renderlib import Screen, Layer
 
 # initialize blogger for global use
 blogger.init("log/file")
@@ -8,7 +8,7 @@ blog = blogger.blog()
 
 pygame.init()
 clock = pygame.time.Clock()
-screen = pygame.display.set_mode([500,500])
+game_screen = pygame.display.set_mode([500,500])
 
 # level 1
 class Game():
@@ -23,12 +23,12 @@ class Game():
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
-            
+            # screen.fill((255,255,255))
+
             # render the active screen
             for s in self.screens:
                 if(s.active == True):
-                    s.render()
-
+                    game_screen.blit(s._render(), (0,0))
             # refresh the screen 1/24 of a second for 24fps
             pygame.display.flip()
             clock.tick(24)
@@ -39,16 +39,27 @@ class Game():
         else:
             self.screens.append(screen)
 
+class newlayer(Layer):
+    def __init__(self):
+        Layer.__init__(self)
+        super(newlayer, self)._listen("render", self.render)
+    def render(self, s):
+        pygame.draw.rect(s, (255,255,0), pygame.Rect(30, 30, 60, 60))
+        
 class newscreen(Screen):
     def __init__(self):
-        Screen.__init__(self)
+        Screen.__init__(self, pygame.Surface((500,500)), default_methods=True)
         super(newscreen, self)._listen("render", self.render)
     def render(self):
-        print("hello rendering from 'newscreen'")
+        blog.info("hello rendering from 'newscreen'")
+        
 
 g = Game()
 ns = newscreen()
 ns.active = True
+nl = newlayer()
+nl.active = True
+ns.add_layer(nl)
 g.addScreen(ns)
 g.start()
 
