@@ -38,38 +38,34 @@ class Layer(Renderer):
                 self.listeners["render"](self.screen)
 # level 2 - layer, rendered to a screen; root _render returns a surface which is rendered to layer 1. all items must be rendered to self.surface.
 class Screen(Renderer):
-    def __init__(self, surface, default_methods=True):
+    def __init__(self, surface):
         Renderer.__init__(self)
         self.layers = []
         self.surface = surface;
-        if(default_methods == True):
-            blogger.blog().info(f"({self.__class__.__name__}) Default methods are enabled. Listeners are ignored in this class.")
-        self.default_methods = default_methods
     def add_layer(self, layer: Layer):
         if layer in self.layers:
             blogger.blog().warn(f"{self.__class__.__name__}) Layer already registered.")
         else:
             layer.screen = self.surface
             self.layers.append(layer)
+        # listen
         # super(newscreen, self)._listen("render", self.render)
     # methods overriden from Renderer class, MUST MATCH SIGNATURE
     def _event(self, e):
-        # if default methods is true, send all events to all active layers, if default methods is false, managed by a listener
-        if(self.default_methods == True):
+        if(self.listeners["event"] == None):
+            # default behaviour if no event function is registered.
             for l in self.layers:
                 if l.active==True:
                     l._event(e)
         else:
-            if(self.listeners["event"] != None):
-                self.listeners["event"](e)
+            self.listeners["event"](e)
     def _render(self):
-        # default methods will render all active layers to screen. if default methods is false, custom listener will be triggered.
-        if(self.default_methods == True):
+        if(self.listeners["render"] == None):
+        # if no registered listener is present, default behaviour is to render all active layers
             for l in self.layers:
                 if l.active == True:
                     l._render()
         else:
-            if(self.listeners["render"] != None):
-                self.listeners["render"]()
+            self.listeners["render"]()
         return self.surface
 # level 3 - layer, renders to a screen; renders to the screen's surface.

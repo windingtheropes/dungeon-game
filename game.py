@@ -3,7 +3,7 @@ import blogger
 from renderlib import Screen, Layer
 
 # initialize blogger for global use
-blogger.init("log/file")
+blogger.init("log/log")
 blog = blogger.blog()
 
 pygame.init()
@@ -47,7 +47,7 @@ class newlayer(Layer):
         
 class newscreen(Screen):
     def __init__(self):
-        Screen.__init__(self, pygame.Surface((500,500)), default_methods=True)
+        Screen.__init__(self, pygame.Surface((500,500)))
         super(newscreen, self)._listen("render", self.render)
     def render(self):
         blog.info("hello rendering from 'newscreen'")
