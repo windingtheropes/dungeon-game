@@ -8,7 +8,8 @@ class Renderer():
         self.active = True
         self.listeners = {
             "event": None,
-            "render": None
+            "render": None,
+            "start": None
         }
     # register a function, fun to be triggered on events triggered by parent screens
     def _listen(self, eventName, fun):
@@ -23,6 +24,9 @@ class Renderer():
     def _render(self):
         if(self.listeners["render"] != None):
             self.listeners["render"]()
+    def _start(self):
+        if(self.listeners["start"] != None):
+            self.listeners["start"]()
 class Layer(Renderer):
     def __init__(self):
         Renderer.__init__(self)

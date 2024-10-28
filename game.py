@@ -19,6 +19,9 @@ class Game():
         pass
     def start(self):
         # start render loop
+        for s in self.screens:
+            if(s.active == True):
+                s._start()
         while self.running == True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -48,9 +51,7 @@ class newlayer(Layer):
 class newscreen(Screen):
     def __init__(self):
         Screen.__init__(self, pygame.Surface((500,500)))
-        super(newscreen, self)._listen("render", self.render)
-    def render(self):
-        blog.info("hello rendering from 'newscreen'")
+        # super(newscreen, self)._listen("render", self.render)
         
 
 g = Game()
