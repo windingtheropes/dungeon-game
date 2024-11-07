@@ -6,6 +6,7 @@ import random
 class Renderer():
     def __init__(self):
         self.active = True
+        self.id = str(int(time.time() * random.random() * random.random()))
         self.listeners = {
             "event": None,
             "render": None,
@@ -27,6 +28,8 @@ class Renderer():
     def _start(self):
         if(self.listeners["start"] != None):
             self.listeners["start"]()
+
+# level 3 - layer, renders to a screen; renders to the screen's surface.
 class Layer(Renderer):
     def __init__(self):
         Renderer.__init__(self)
@@ -46,10 +49,12 @@ class Screen(Renderer):
         Renderer.__init__(self)
         self.layers = []
         self.surface = surface;
+    # adding a layer to a screen involves registering it
     def add_layer(self, layer: Layer):
         if layer in self.layers:
             blogger.blog().warn(f"{self.__class__.__name__}) Layer already registered.")
         else:
+            # registers the layer to the screen by providing it with a surface to render to
             layer.screen = self.surface
             self.layers.append(layer)
         # listen
@@ -64,6 +69,8 @@ class Screen(Renderer):
         else:
             self.listeners["event"](e)
     def _render(self):
+        # render the background color as a backup, in order to prevent unexpected behaviour
+        self.surface.fill((0,0,0))
         if(self.listeners["render"] == None):
         # if no registered listener is present, default behaviour is to render all active layers
             for l in self.layers:
@@ -72,4 +79,11 @@ class Screen(Renderer):
         else:
             self.listeners["render"]()
         return self.surface
-# level 3 - layer, renders to a screen; renders to the screen's surface.
+
+class Entity(Layer):
+    def __init__(self):
+        Layer.__init__(self)
+        # position as calculated by the entity floor; global position on screen
+        self._position = [0,0]
+        self.position = [0,0]
+
