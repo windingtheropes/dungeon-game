@@ -1,7 +1,7 @@
 import pygame
 import blogger
 from renderlib import Screen, Layer, Entity
-
+from vector import Vec2
 # initialize blogger for global use
 blogger.init("log/log")
 blog = blogger.blog()
@@ -64,22 +64,32 @@ class Player(Entity):
     def event(self, e):
         if(e.type == pygame.KEYDOWN):
             if(e.key == pygame.K_DOWN):
-                self.position[1] += 5
+                self.position.y += 5
             if(e.key == pygame.K_UP):
-                self.position[1] -= 5
+                self.position.y -= 5
             if(e.key == pygame.K_RIGHT):
-                self.position[0] += 5
+                self.position.x += 5
             if(e.key == pygame.K_LEFT):
-                self.position[0] -= 5
+                self.position.x -= 5
     def _render(self):
-        pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(self._position[0], self._position[1], 60,60))
+        pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(self._position.x, self._position.y, 60,60))
+class Projectile(Entity):
+    def __init__(self, ipos = Vec2(0,0), velocity=1, direction=Vec2(1,0)):
+        self.direction: Vec2 = direction
+        self.position: Vec2 = ipos
+        self.velocity = velocity
+        Entity.__init__(self)
+    def _render(self):
+        self.position = self.position + (self.direction * (self.velocity))
+        print(self.position.arr)
+        pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(self._position.x, self._position.y, 60,60))
 # the entity floor contains a list of entities, [[Entity, GlobalPosition]]
 class EntityFloor(Layer):
     def __init__(self):
         Layer.__init__(self)
         self.entities = []
-        self.pos = [50,50]
-        self.dim = [300,300]
+        self.pos: Vec2 = Vec2(50,50)
+        self.dim: Vec2 = Vec2(300,300)
     
     # layer does not have built in functionality for handling layers within (layer 3.1), so it must be added like it is implemented in screens (layer 2)
     def _render(self):
@@ -88,13 +98,14 @@ class EntityFloor(Layer):
             for e in self.entities:
                 if e.active == True:
                     # calculated global position
-                    cgp = [e.position[0]+self.pos[0], e.position[1]+self.pos[1]]
-                    e._position = cgp 
-                    print(e.position)
+                    cgp = e.position + self.pos
+                    e._position = cgp
+                    print(e.position.arr)
                     e._render()
         else:
             self.listeners["render"]()
     def _event(self, event):
+        self.add_entity(Projectile([0,0], 10, Vec2(1,0)))
         if(self.listeners["event"] == None):
             # default behaviour if no event function is registered.
             for entity in self.entities:
@@ -122,9 +133,11 @@ bd = Backdrop()
 
 p = Player()
 ef = EntityFloor()
+proj = Projectile([0,0], 10, Vec2(1,0))
 ns.add_layer(bd)
 ns.add_layer(ef)
 ef.add_entity(p)
+ef.add_entity(proj)
 
 g.start()
 
