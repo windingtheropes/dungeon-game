@@ -3,7 +3,9 @@ class Vec2():
     def __init__(self, x:float=0, y:float=0):
         self.x:float = float(x)
         self.y:float = float(y)
-        self.arr = [self.x,self.y]
+        
+    def arr(self):
+        return [self.x, self.y]
     # magnitude of vector; use is to be interpreted
     def mag(self):
         return math.sqrt(self.x**2 + self.y**2)

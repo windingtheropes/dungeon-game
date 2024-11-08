@@ -9,7 +9,7 @@ blog = blogger.blog()
 
 pygame.init()
 clock = pygame.time.Clock()
-game_screen = pygame.display.set_mode([500,500])
+game_screen = pygame.display.set_mode([512,512])
 
 
 class Logic(Listener):
@@ -55,32 +55,40 @@ class Backdrop(Layer):
     def __init__(self):
         Layer.__init__(self)
         super(Backdrop, self)._listen("render", self.render)
-    def render(self, s):
-        s.fill((255,255,255))
-        pass
+        self.dim = Vec2(384,384)
+        self.pos = Vec2(64,64)
+    def render(self, s:pygame.Surface):
+        bd = pygame.Surface(self.dim.arr())
+        bd.fill((20,20,40))
+        s.blit(bd, self.pos.arr())
+
 class newscreen(Screen):
     def __init__(self):
-        Screen.__init__(self, pygame.Surface((500,500)))
+        Screen.__init__(self, pygame.Surface((512,512)))
         # super(newscreen, self)._listen("render", self.render)
 # Entity floor
 class Player(Entity):
     def __init__(self):
         Entity.__init__(self)
+        self.dim = Vec2(32,32)
         super(Player, self)._listen("event", self.event)
     def event(self, e):
         if(e.type == pygame.KEYDOWN):
+            pm = Vec2(0,0)
             if(e.key == pygame.K_DOWN):
-                self.relative_position.y += 5
+                pm = Vec2(0, self.dim.y)
             if(e.key == pygame.K_UP):
-                self.relative_position.y -= 5
+                pm = Vec2(0, -self.dim.y)
             if(e.key == pygame.K_RIGHT):
-                self.relative_position.x += 5
+                pm = Vec2(self.dim.x, 0)
             if(e.key == pygame.K_LEFT):
-                self.relative_position.x -= 5
-            if(e.key == pygame.K_e):
-                print("E")
+                pm = Vec2(-self.dim.x, 0)
+            # move if legal
+            if(self.floor.is_legal_move(self, pm)):
+                self.relative_position = self.relative_position + pm
     def _render(self):
-        pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(self._global_position.x, self._global_position.y, 60,60))
+        gpos: Vec2 = self.floor.get_global_position(self.relative_position)
+        pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
 class Projectile(Entity):
     def __init__(self, ipos = Vec2(0,0), velocity=1, direction=Vec2(1,0)):
         self.direction: Vec2 = direction
@@ -95,8 +103,8 @@ class EntityFloor(Layer):
     def __init__(self):
         Layer.__init__(self)
         self.entities = []
-        self.pos: Vec2 = Vec2(50,50)
-        self.dim: Vec2 = Vec2(300,300)
+        self.pos: Vec2 = Vec2(64,64)
+        self.dim: Vec2 = Vec2(384,384)
         # self.listeners = {"render": None, "event": None}
         
     # layer does not have built in functionality for handling layers within (layer 3.1), so it must be added like it is implemented in screens (layer 2)
@@ -104,11 +112,7 @@ class EntityFloor(Layer):
         if(self.listeners["render"] == None):
         # if no registered listener is present, default behaviour is to render all active layers
             for e in self.entities:
-                if e.active == True:
-                    # calculated global position
-                    cgp = e.position + self.pos                        
-                    e._position = cgp
-                    e._render()
+                e._render()
         else:
             self.listeners["render"]()
     def _event(self, event):
@@ -130,7 +134,24 @@ class EntityFloor(Layer):
             # give entity access to entityfloor
             entity.floor = self
             self.entities.append(entity)        
+    def get_global_position(self, relative_position: Vec2):
+        return relative_position + self.pos
+    def is_legal_move(self, entity: Entity, dir: Vec2):
+        # position is in the top left of every entity, so subtract 1 from the amount of times h or w of entity goes into h or w of floor
+        max_x = (((self.dim.x)-entity.dim.x)/entity.dim.x)*entity.dim.x
+        max_y = (((self.dim.y)-entity.dim.y)/entity.dim.y)*entity.dim.y
+        prop_pos = entity.relative_position + dir
+        # print("Trying to move by ", dir.arr())
+        # print("Would be at ", prop_pos.arr())
+        # two movements can't be made at the same time currently, but worth checking for the future
+        if(dir.x != 0) and (prop_pos.x < 0 or prop_pos.x > max_x):
+            return False
+        if(dir.y != 0) and (prop_pos.y < 0 or prop_pos.y > max_y):
+            return False
+        return True
 
+        
+        
 g = Game()
 
 ns = newscreen()

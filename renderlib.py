@@ -90,8 +90,8 @@ class Entity(Layer):
     def __init__(self):
         Layer.__init__(self)
         # position as calculated by the entity floor; global position on screen
-        self._global_position = Vec2(0,0)
         self.relative_position = Vec2(0,0)
+        self.dim = Vec2(0,0)
         # entity floor which this entity belongs to. Will only be given this through registration
         self.floor = None
 

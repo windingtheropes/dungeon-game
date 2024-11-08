@@ -9,7 +9,7 @@ blog = blogger.blog()
 
 pygame.init()
 clock = pygame.time.Clock()
-game_screen = pygame.display.set_mode([500,500])
+game_screen = pygame.display.set_mode([512,512])
 
 # level 1
 class Game():
