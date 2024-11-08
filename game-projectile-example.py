@@ -1,7 +1,7 @@
 import pygame
 import blogger
 import random
-from renderlib import Screen, Layer, Entity, Listener
+from renderlib import Screen, Layer, Entity
 from vector import Vec2
 # initialize blogger for global use
 blogger.init("log/log")
@@ -10,11 +10,6 @@ blog = blogger.blog()
 pygame.init()
 clock = pygame.time.Clock()
 game_screen = pygame.display.set_mode([500,500])
-
-
-class Logic(Listener):
-    def __init__(self):
-        Listener.__init__(self)
 
 # level 1
 class Game():
@@ -77,8 +72,6 @@ class Player(Entity):
                 self.relative_position.x += 5
             if(e.key == pygame.K_LEFT):
                 self.relative_position.x -= 5
-            if(e.key == pygame.K_e):
-                print("E")
     def _render(self):
         pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(self._global_position.x, self._global_position.y, 60,60))
 class Projectile(Entity):
@@ -97,8 +90,7 @@ class EntityFloor(Layer):
         self.entities = []
         self.pos: Vec2 = Vec2(50,50)
         self.dim: Vec2 = Vec2(300,300)
-        # self.listeners = {"render": None, "event": None}
-        
+    
     # layer does not have built in functionality for handling layers within (layer 3.1), so it must be added like it is implemented in screens (layer 2)
     def _render(self):
         if(self.listeners["render"] == None):
@@ -112,6 +104,9 @@ class EntityFloor(Layer):
         else:
             self.listeners["render"]()
     def _event(self, event):
+        direction  = Vec2(random.random(),random.random())
+        # blog.info(direction.unit())
+        self.add_entity(Projectile([0,0], 20, direction.unit()))
         if(self.listeners["event"] == None):
             # default behaviour if no event function is registered.
             for entity in self.entities:
@@ -127,8 +122,6 @@ class EntityFloor(Layer):
             if(self.screen == None):
                 blogger.blog().error(f"{self.__class__.__name__}) No screen registered; trying to assign None screen to entity.")
             entity.screen = self.screen
-            # give entity access to entityfloor
-            entity.floor = self
             self.entities.append(entity)        
 
 g = Game()
@@ -141,11 +134,11 @@ bd = Backdrop()
 
 p = Player()
 ef = EntityFloor()
-# proj = Projectile([0,0], 10, Vec2(1,0))
+proj = Projectile([0,0], 10, Vec2(1,0))
 ns.add_layer(bd)
 ns.add_layer(ef)
 ef.add_entity(p)
-# ef.add_entity(proj)
+ef.add_entity(proj)
 
 g.start()
 

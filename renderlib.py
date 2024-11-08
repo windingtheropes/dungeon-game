@@ -2,9 +2,21 @@ import types
 import blogger
 import time
 import random
+from vector import Vec2
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
-class Renderer():
+class Listener():
     def __init__(self):
+        # listeners must be initialized as None in order to be considered valid
+        self.listeners = {}
+    # register a function to the listeners table
+    def _listen(self, eventName, fun):
+        if eventName in self.listeners.keys() and fun != None and type(fun) == types.MethodType:
+            self.listeners[eventName] = fun
+        else:
+            blogger.blog.warn(f"{self.__class__.__name__}) Function passed for {eventName} listener is not a function, or event does not exist.")
+class Renderer(Listener):
+    def __init__(self):
+        Listener.__init__(self)
         self.active = True
         self.id = str(int(time.time() * random.random() * random.random()))
         self.listeners = {
@@ -12,12 +24,6 @@ class Renderer():
             "render": None,
             "start": None
         }
-    # register a function, fun to be triggered on events triggered by parent screens
-    def _listen(self, eventName, fun):
-        if eventName in self.listeners.keys() and fun != None and type(fun) == types.MethodType:
-            self.listeners[eventName] = fun
-        else:
-            blogger.blog.warn(f"{self.__class__.__name__}) Function passed for {eventName} listener is not a function, or event does not exist.")
     # universal generic functions trigger registered listeners. this is the function that is run by the layer 1
     def _event(self, e):
         if(self.listeners["event"] != None):
@@ -84,6 +90,8 @@ class Entity(Layer):
     def __init__(self):
         Layer.__init__(self)
         # position as calculated by the entity floor; global position on screen
-        self._position = [0,0]
-        self.position = [0,0]
+        self._global_position = Vec2(0,0)
+        self.relative_position = Vec2(0,0)
+        # entity floor which this entity belongs to. Will only be given this through registration
+        self.floor = None
 
