@@ -2,6 +2,7 @@ import types
 import blogger
 import time
 import random
+from vector import Vec2
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
 class Renderer():
     def __init__(self):
@@ -83,7 +84,9 @@ class Screen(Renderer):
 class Entity(Layer):
     def __init__(self):
         Layer.__init__(self)
+        # will be deleted if scrap
+        self.scrap = False
         # position as calculated by the entity floor; global position on screen
-        self._position = [0,0]
-        self.position = [0,0]
+        self._position = Vec2(0,0)
+        self.position = Vec2(0,0)
 
