@@ -91,7 +91,8 @@ class Entity(Layer):
         Layer.__init__(self)
         # position as calculated by the entity floor; global position on screen
         self.relative_position = Vec2(0,0)
-        self.dim = Vec2(0,0)
+        self.dim = Vec2(32,32)
+        self.facing = Vec2(0,0) # direction entity is facing
         # entity floor which this entity belongs to. Will only be given this through registration
         self.floor = None
 
