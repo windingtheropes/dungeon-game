@@ -10,15 +10,21 @@ class Listener():
         self.listeners = {}
     # register a function to the listeners table
     def _listen(self, eventName, fun):
-        if eventName in self.listeners.keys() and fun != None and type(fun) == types.MethodType:
-            self.listeners[eventName] = fun
+        allowed_events = self.listeners.keys()
+        
+        if eventName in allowed_events:
+            if fun != None and type(fun) == types.MethodType:
+                self.listeners[eventName] = fun
+            else:
+                blogger.blog.warn(f"{self.__class__.__name__}) Function passed for {eventName} listener is not a function.")
         else:
-            blogger.blog.warn(f"{self.__class__.__name__}) Function passed for {eventName} listener is not a function, or event does not exist.")
+            blogger.blog.warn(f"{self.__class__.__name__}) Event {eventName} does not exist on {self.__class__.__name__}.")
 class Renderer(Listener):
     def __init__(self):
         Listener.__init__(self)
         self.active = True
         self.id = str(int(time.time() * random.random() * random.random()))
+        self.listeners = {}
         self.listeners = {
             "event": None,
             "render": None,
@@ -90,9 +96,21 @@ class Entity(Layer):
     def __init__(self):
         Layer.__init__(self)
         # position as calculated by the entity floor; global position on screen
+        self.collidable = False
+        # register all allowed events; includes collision
+        self.listeners = {
+            "event":None,
+            "render":None,
+            "start":None,
+            "collision":None
+        }
         self.relative_position = Vec2(0,0)
         self.dim = Vec2(32,32)
         self.facing = Vec2(0,0) # direction entity is facing
         # entity floor which this entity belongs to. Will only be given this through registration
         self.floor = None
 
+class Collision():
+    def __init__(self, entity: Entity, pos: Vec2):
+        self.entity = entity
+        self.pos = pos
