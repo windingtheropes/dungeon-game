@@ -112,6 +112,9 @@ class Player(Entity):
 class Enemy(Entity):
     def __init__(self):
         Entity.__init__(self)
+        self.collidable = True
+        self.solid = True
+        self.relative_position = Vec2(32,128)
         self.dim = Vec2(32,32)
     def _render(self):
         # self.facing = -1 * self.floor.player.facing
@@ -121,11 +124,12 @@ class Enemy(Entity):
         gpos: Vec2 = self.floor.get_global_position(self.relative_position)
         pygame.draw.rect(self.screen, (255,0,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
 class Projectile(Entity):
-    def __init__(self, ipos = Vec2(0,0), velocity=1, direction=Vec2(1,0)):
+    def __init__(self, ipos = Vec2(0,0), velocity=1, direction=Vec2(1,0), source:Entity=None):
         Entity.__init__(self)
         self.facing: Vec2 = direction
         self.relative_position: Vec2 = ipos
         self.velocity = velocity
+        self.source = source
     def _render(self):
         # move by one unit of velocity* direction every render cycle
         self.relative_position = self.relative_position + (self.facing * (self.velocity))
@@ -152,7 +156,7 @@ class EntityFloor(Layer):
                     # remove entities far away from the dimensions of the floor
                     self.entities.remove(e)
                 else:
-                    print(self.calc_collision(e))
+                    # print(self.calc_collision(e))
                     e._render()
         else:
             self.listeners["render"]()
@@ -197,6 +201,8 @@ class EntityFloor(Layer):
             else:
                 pos = entity.relative_position
 
+            if target.collidable == False:
+                return
             # can't collide with self
             if(target == entity):
                 continue
@@ -216,13 +222,17 @@ class EntityFloor(Layer):
                 return Collision(target, pos)
             else:
                 return None
-    # check if a move is legal for any entity
+    # check if a move is legal for any solid entity
     def is_legal_move(self, entity: Entity, dir: Vec2):
         # position is in the top left of every entity, so subtract 1 from the amount of times h or w of entity goes into h or w of floor
         max_x = (((self.dim.x)-entity.dim.x)/entity.dim.x)*entity.dim.x
         max_y = (((self.dim.y)-entity.dim.y)/entity.dim.y)*entity.dim.y
         prop_pos = entity.relative_position + dir
         
+        # if a collision is expected on this next move, with a solid entity, treat it as such **** TODO ** and don't allow the move
+        collision: Collision = self.calc_collision(entity, prop_pos)
+        if(collision and collision.entity.solid == True):
+            return False
         # two movements can't be made at the same time currently, but worth checking for the future
         if(dir.x != 0) and (prop_pos.x < 0 or prop_pos.x > max_x):
             return False

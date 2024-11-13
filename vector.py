@@ -11,7 +11,7 @@ class Vec2():
         return math.sqrt(self.x**2 + self.y**2)
     # return the corresponding unit vector
     def unit(self):
-        return (1/self.mag()) * self
+        return (1/self.mag()) * self 
     # multiplication for int and float, scalar multiplication of vector
     def __mul__(self,b):
         return Vec2(self.x*b, self.y*b)

@@ -95,8 +95,11 @@ class Screen(Renderer):
 class Entity(Layer):
     def __init__(self):
         Layer.__init__(self)
-        # position as calculated by the entity floor; global position on screen
-        self.collidable = False
+        
+        # will collisions be calculated for this entity
+        self.collidable = True
+        # if solid, most items cannot pass through this entity
+        self.solid = True
         # register all allowed events; includes collision
         self.listeners = {
             "event":None,
@@ -104,6 +107,7 @@ class Entity(Layer):
             "start":None,
             "collision":None
         }
+        # relative to entity floor
         self.relative_position = Vec2(0,0)
         self.dim = Vec2(32,32)
         self.facing = Vec2(0,0) # direction entity is facing
