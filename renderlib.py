@@ -95,7 +95,8 @@ class Screen(Renderer):
 class Entity(Layer):
     def __init__(self):
         Layer.__init__(self)
-        
+        # tells parent to kill this item
+        self._del = False
         # will collisions be calculated for this entity
         self.collidable = True
         # if solid, most items cannot pass through this entity
@@ -119,6 +120,8 @@ class Entity(Layer):
             pass
         else:
             self.listeners["collision"](c)   
+    def destroy(self):
+        self._del = True
 class Collision():
     def __init__(self, entity: Entity, pos: Vec2):
         self.entity = entity

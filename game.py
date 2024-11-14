@@ -11,7 +11,7 @@ pygame.init()
 clock = pygame.time.Clock()
 game_screen = pygame.display.set_mode([512,512])
 
-
+frame_rate = 60
 class Logic(Listener):
     def __init__(self):
         Listener.__init__(self)
@@ -43,7 +43,7 @@ class Game():
             game_screen.blit(self.active_screen._render(), (0,0))
             # refresh the screen 1/24 of a second for 24fps
             pygame.display.update()
-            clock.tick(24)
+            clock.tick(frame_rate)
     # register a screen to the screens table
     def addScreen(self, screen: Screen):
         if screen in self.screens:
@@ -136,13 +136,18 @@ class Projectile(Entity):
     def _collision(self, c: Collision):
         if(c.entity == self.source):
             return
+        
+        if(isinstance(c.entity, type(self))):
+            return
+        self.velocity = 0
     def _render(self):
-        # move by one unit of velocity* direction every render cycle
-        prop_pos: Vec2 = self.relative_position + (self.facing * (self.velocity))
+        # move by one unit of velocity* direction every render cycle, velocity 1 is relative to 24 fps, so multiply by a ratio of this to the frame rate
+        prop_pos: Vec2 = self.relative_position + ((self.facing * (self.velocity))*(24/frame_rate))
         self.floor: EntityFloor
-
-        # collision = self.floor.is_legal_move(self, prop_pos)
+        
+        collision = self.floor.is_legal_move(self, prop_pos)
         # if(collision):
+        #     self.velocity = 0
         self.relative_position = prop_pos
         # self.floor.calc_collision()
         gpos = self.floor.get_global_position(self.relative_position)
@@ -165,13 +170,12 @@ class EntityFloor(Layer):
             e: Entity
             for e in self.entities:
                 rel_pos: Vec2 = e.relative_position
-                if(abs(rel_pos.x) > (self.dim.x) or abs(rel_pos.y) > (self.dim.y)):
+                if(abs(rel_pos.x) > (self.dim.x) or abs(rel_pos.y) > (self.dim.y)) or e._del == True:
                     # remove entities far away from the dimensions of the floor
                     self.entities.remove(e)
                 else:
                     collision = self.calc_collision(e)
                     if(collision):
-                        print(collision.entity.__class__.__name__)
                         e._collision(collision)
                     e._render()
         else:
@@ -205,7 +209,7 @@ class EntityFloor(Layer):
         return relative_position + self.pos
     def get_grid_position(self, relative_position:Vec2):
         # return position relative to the grid, knowing that all entities are the same size. 
-        return (relative_position*(1/self.gdim)).arr()
+        return(relative_position*(1/self.gdim)).arr()
     # calculate collisions
     def calc_collision(self, entity: Entity, o_pos: Vec2=None):
         target: Entity
@@ -229,15 +233,16 @@ class EntityFloor(Layer):
             t_min = Vec2(t_pos.x, t_pos.y)
             t_max = Vec2(t_pos.x+target.dim.x-1, t_pos.y+target.dim.y-1)
             
-            # if(pos.abs().x >= t_min_x) and (pos.abs().x <= t_max_x):
+            # if(pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x):
             #     print("collision on x")
-            # if(pos.abs().y >= t_min_y) and (pos.abs().y <= t_max_y):
+            # if(pos.abs().y >= t_min.y) and (pos.abs().y <= t_max.y):
             #     print("collision on y")
 
             if((pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x)) and ((pos.abs().y >= t_min.y) and (pos.abs().y <= t_min.y)):
-                print(target.__class__.__name__)
+                # assumption is that one collision can happen at a time, but add to array anyways
                 return Collision(target, pos)
             else:
+               # proceed to check next entity in array
                continue
         return None
     # check if a move is legal for any solid entity
@@ -248,7 +253,7 @@ class EntityFloor(Layer):
         prop_pos = entity.relative_position + dir
         
         # if a collision is expected on this next move, with a solid entity, treat it as such **** TODO ** and don't allow the move
-        collision: Collision = self.calc_collision(entity, prop_pos)
+        collision: Entity = self.calc_collision(entity, prop_pos)
         if(collision and collision.entity.solid == True):
             return False
         # two movements can't be made at the same time currently, but worth checking for the future
