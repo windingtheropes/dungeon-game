@@ -113,7 +113,12 @@ class Entity(Layer):
         self.facing = Vec2(0,0) # direction entity is facing
         # entity floor which this entity belongs to. Will only be given this through registration
         self.floor = None
-
+    def _collision(self, c):
+        if(self.listeners["collision"] == None):
+            # default behaviour if no event function is registered.
+            pass
+        else:
+            self.listeners["collision"](c)   
 class Collision():
     def __init__(self, entity: Entity, pos: Vec2):
         self.entity = entity
