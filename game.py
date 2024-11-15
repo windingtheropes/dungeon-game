@@ -116,7 +116,7 @@ class Enemy(Entity):
         self.solid = True
         self.relative_position = Vec2(32,128)
         self.dim = Vec2(32,32)
-        
+        self.health = 10
     def _render(self):
         # self.facing = -1 * self.floor.player.facing
         
@@ -140,17 +140,13 @@ class Projectile(Entity):
         
         if(isinstance(c.entity, type(self))):
             return
+        if(isinstance(c.entity, Enemy)):
+            c.entity.health -= 5
         self.destroy()
     def _render(self):
         # move by one unit of velocity* direction every render cycle, velocity 1 is relative to 24 fps, so multiply by a ratio of this to the frame rate
         prop_pos: Vec2 = self.relative_position + ((self.facing * (self.velocity))*(24/frame_rate))
-        self.floor: EntityFloor
-        
-        collision = self.floor.is_legal_move(self, prop_pos)
-        # if(collision):
-        #     self.velocity = 0
         self.relative_position = prop_pos
-        # self.floor.calc_collision()
         gpos = self.floor.get_global_position(self.relative_position)
         pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.y))
 # the entity floor contains a list of entities, [[Entity, GlobalPosition]]
@@ -175,7 +171,7 @@ class EntityFloor(Layer):
                     # remove entities far away from the dimensions of the floor
                     self.entities.remove(e)
                 else:
-                    print(e.dim.arr())
+                    # print(e.dim.arr())
                     collision = self.calc_collision(e)
                     if(collision):
                         e._collision(collision)
@@ -194,10 +190,10 @@ class EntityFloor(Layer):
         self.player = player
         self.add_entity(player)
     def add_entity(self, entity: Entity):
-        if entity.dim.x != self.gdim or entity.dim.y != self.gdim:
-            blog.warn("Mismatch in entity widths from grid dimensions.")
+        # if entity.dim.x != self.gdim or entity.dim.y != self.gdim:
+        #     blog.warn("Mismatch in entity widths from grid dimensions.")
         if entity in self.entities:
-            blog.warn(f"{self.__class__.__name__}) Entity already registered.")
+           return blog.warn(f"{self.__class__.__name__}) Entity already registered.")
         else:
             # registers the layer to the screen by providing it with a surface to render to
             if(self.screen == None):
@@ -239,13 +235,21 @@ class EntityFloor(Layer):
             # if(isinstance(entity, Projectile) and not isinstance(target, Projectile)):
             #     blog.info(f"[{target.id}] {target.__class__.__name__}, {t_pos.arr()}")
             #     blog.info(f"[{entity.id}] {entity.__class__.__name__}, {pos.arr()}")
-            # if(pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x):
-            #     print("collision on x")
-            # if(pos.abs().y >= t_min.y) and (pos.abs().y <= t_max.y):
-            #     print("collision on y")
-
-            if((pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x)) and ((pos.abs().y >= t_min.y) and (pos.abs().y <= t_min.y)):
-                # assumption is that one collision can happen at a time, but add to array anyways
+            #     if(pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x):
+            #         print("collision on x")
+            #     if(pos.abs().y >= t_min.y) and (pos.abs().y <= t_max.y):
+            #         print("collision on y")
+            # print(t_min.arr())
+            if(
+                # entity position is greater than or equal to the minimum x; to the right
+                # entity position is less than or equal to the maximum x
+                ((pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x))
+                
+                and 
+                # entity position is greater than or equal to the minimum y; down is positive (thanks pygame :) )
+                # entity position is less than or equal to the maximum y
+                ((pos.abs().y >= t_min.y) and (pos.abs().y <= t_max.y))
+              ):
                 return Collision(target, pos)
             else:
                # proceed to check next entity in array
@@ -281,6 +285,8 @@ bd = Backdrop()
 hb = Hotbar()
 p = Player()
 enemy = Enemy()
+enemy2 = Enemy()
+enemy2.relative_position = Vec2(128,128)
 ef = EntityFloor()
 # proj = Projectile([0,0], 10, Vec2(1,0))
 ns.add_layer(bd)
@@ -288,6 +294,7 @@ ns.add_layer(ef)
 ns.add_layer(hb)
 ef.add_player(p)
 ef.add_entity(enemy)
+ef.add_entity(enemy2)
 # ef.add_entity(proj)
 
 g.start()
