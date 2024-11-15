@@ -151,8 +151,8 @@ class Enemy(Entity):
             else:
                 prop_pos = self.relative_position + Vec2(0,-1*self.dim.y)
         # gets stuck here
-        # if(self.floor.is_legal_move(self, prop_pos)):
-        self.relative_position = prop_pos
+        if(self.floor.is_legal_move(self, (prop_pos-self.relative_position))):
+            self.relative_position = prop_pos
     def _render(self): 
         self.floor: EntityFloor
         diff = self.relative_position + (-1*(self.floor.player.relative_position))
@@ -300,12 +300,12 @@ class EntityFloor(Layer):
                continue
         return None
     # check if a move is legal for any solid entity
-    def is_legal_move(self, entity: Entity, dir: Vec2):
+    def is_legal_move(self, entity: Entity, dir:Vec2):
         # position is in the top left of every entity, so subtract 1 from the amount of times h or w of entity goes into h or w of floor
         max_x = (((self.dim.x)-entity.dim.x)/entity.dim.x)*entity.dim.x
         max_y = (((self.dim.y)-entity.dim.y)/entity.dim.y)*entity.dim.y
         prop_pos = entity.relative_position + dir
-        
+        # dir = prop_pos - entity.relative_position
         # if a collision is expected on this next move, with a solid entity, treat it as such **** TODO ** and don't allow the move
         collision: Entity = self.calc_collision(entity, prop_pos)
         if(collision and collision.entity.solid == True):
