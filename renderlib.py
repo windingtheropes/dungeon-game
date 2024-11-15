@@ -4,6 +4,7 @@ import time
 import random
 import pygame
 from vector import Vec2
+from gamelib import Logic
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
 class IntervalFunction:
     def __init__(self, fun, interval):
@@ -44,6 +45,7 @@ class Renderer(Listener):
             "render": None,
             "start": None
         }
+        self.logic: Logic = None;
     # universal generic functions trigger registered listeners. this is the function that is run by the layer 1
     def _event(self, e):
         if(self.listeners["event"] != None):
@@ -66,29 +68,29 @@ class Renderer(Listener):
 class Layer(Renderer):
     def __init__(self):
         Renderer.__init__(self)
-        self.screen = None
-        
+        self.surface:pygame.surface = None
+    
     # overriden render function, SAME SIGNATURE; gives a variable for a surface to render to.
     def _render(self):
         if(self.listeners["render"] != None):
-            if(self.screen == None):
+            if(self.surface == None):
                 blogger.blog().warn(f"{self.__class__.__name__}) Layer not initialized to a screen, not rendering.")
                 return
             else:
-                self.listeners["render"](self.screen)
+                self.listeners["render"](self.surface)
 # level 2 - layer, rendered to a screen; root _render returns a surface which is rendered to layer 1. all items must be rendered to self.surface.
 class Screen(Renderer):
     def __init__(self, surface):
         Renderer.__init__(self)
         self.layers = []
-        self.surface = surface;
+        self.surface:pygame.surface = surface;
     # adding a layer to a screen involves registering it
     def add_layer(self, layer: Layer):
         if layer in self.layers:
             blogger.blog().warn(f"{self.__class__.__name__}) Layer already registered.")
         else:
             # registers the layer to the screen by providing it with a surface to render to
-            layer.screen = self.surface
+            layer.surface = self.surface
             self.layers.append(layer)
         # listen
         # super(newscreen, self)._listen("render", self.render)
@@ -116,7 +118,6 @@ class Screen(Renderer):
         else:
             self.listeners["render"]()
         return self.surface
-
 class Entity(Layer):
     def __init__(self):
         Layer.__init__(self)
@@ -147,6 +148,8 @@ class Entity(Layer):
             self.listeners["collision"](c)   
     def destroy(self):
         self._del = True
+# entity floor base class; contains active entities
+
 class Collision():
     def __init__(self, entity: Entity, pos: Vec2):
         self.entity = entity

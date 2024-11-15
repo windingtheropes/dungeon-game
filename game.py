@@ -1,7 +1,8 @@
 import pygame
 import blogger
 import random
-from renderlib import Screen, Layer, Entity, Listener, Collision
+from renderlib import Screen, Layer, Entity, Collision
+from gamelib import PlayerInfo, LogicComponent, Logic
 from vector import Vec2
 import math
 # initialize blogger for global use
@@ -13,9 +14,8 @@ clock = pygame.time.Clock()
 game_screen = pygame.display.set_mode([512,512])
 
 frame_rate = 60
-class Logic(Listener):
-    def __init__(self):
-        Listener.__init__(self)
+# l = Logic()
+# l.add_component(PlayerInfo("PlayerInfo", 3))
 
 # level 1
 class Game():
@@ -25,15 +25,16 @@ class Game():
         
         # Active screen management
         self.active_screen: Screen = None;
-    def start(self):
-        active_screen = None
+    def start(self,l:Logic=Logic()):
         # start render loop
         while self.running == True:
+            screen: Screen
             for screen in self.screens:
                 if(screen.active == True):
                     if(self.active_screen != None and screen.id == self.active_screen.id):
                         pass
                     else:
+                        screen.logic = l
                         self.active_screen = screen
                         screen._start()
             for event in pygame.event.get():
@@ -64,22 +65,23 @@ class Backdrop(Layer):
         bd = pygame.Surface(self.dim.arr())
         bd.fill((20,20,40))
         s.blit(bd, self.pos.arr())
+# hotbar at bottom of screen
 class Hotbar(Layer):
     def __init__(self):
         Layer.__init__(self)
         super(Hotbar, self)._listen("render", self.render)
         self.dim = Vec2(512,64)
         self.pos = Vec2(0,448)
-        self.T_health = 3 # of 3
+    # pull universal player data from the logic class, and use it to update health
     def render(self, s:pygame.Surface):
         bd = pygame.Surface(self.dim.arr())
         bd.fill((0,0,0))
         s.blit(bd, self.pos.arr())
-        for i in range(0,3):
-            if(self.T_health - i > 0):
-                pygame.draw.rect(self.screen, (255,0,0), pygame.Rect(64+i*32, 448+16,32, 32))
-            else:
-                pygame.draw.rect(self.screen, (50,0,0), pygame.Rect(64+i*32, 448+16,32, 32))
+        # for i in range(0,player.max_health):
+        #     if(player.health - i > 0):
+        #         pygame.draw.rect(self.screen, (255,0,0), pygame.Rect(64+i*32, 448+16,32, 32))
+        #     else:
+        #         pygame.draw.rect(self.screen, (50,0,0), pygame.Rect(64+i*32, 448+16,32, 32))
         
 class newscreen(Screen):
     def __init__(self):
@@ -94,7 +96,7 @@ class Player(Entity):
         Entity.__init__(self)
         self.dim = Vec2(32,32)
         super(Player, self)._listen("event", self.event)
-    
+        self.health = 3
     def event(self, e):
         if(e.type == pygame.KEYDOWN):
             if(e.key in [pygame.K_DOWN, pygame.K_UP, pygame.K_LEFT, pygame.K_RIGHT]):
@@ -115,7 +117,7 @@ class Player(Entity):
                     self.floor.add_entity(Projectile((self.relative_position), 0.75, self.facing, self))
     def _render(self):
         gpos: Vec2 = self.floor.get_global_position(self.relative_position)
-        pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
+        pygame.draw.rect(self.surface, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
 class Enemy(Entity):
     def __init__(self, ipos:Vec2=None):
         Entity.__init__(self)
@@ -131,13 +133,14 @@ class Enemy(Entity):
         self._listen_on_interval(2,self.find_player)
         self._listen_on_interval(1/2,self.move)
         self.target:Vec2 = Vec2(0,0)
+    
     def find_player(self):
         # find the player every 2 seconds
         self.target = self.floor.player.relative_position
     def move(self):
         # TEST IMPLEMENTATION OF PATHFINDING, RANDOMLY MOVE BY COMPONENT
         dir = (self.target - self.relative_position)
-        
+        self.floor.add_entity(Projectile(self.relative_position, 1, dir.unit(), self))
         yx = random.randint(0,1)
         prop_pos: Vec2 = Vec2(0,0)
         if(yx == 0):
@@ -164,7 +167,7 @@ class Enemy(Entity):
         # if(self.floor.is_legal_move(self, self.facing)):
         #     self.relative_position = self.relative_position + self.facing
         gpos: Vec2 = self.floor.get_global_position(self.relative_position)
-        pygame.draw.rect(self.screen, (255,0,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
+        pygame.draw.rect(self.surface, (255,0,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
 class Projectile(Entity):
     def __init__(self, ipos = Vec2(0,0), velocity=1, direction=Vec2(1,0), source:Entity=None):
         Entity.__init__(self)
@@ -182,14 +185,16 @@ class Projectile(Entity):
         if(isinstance(c.entity, type(self))):
             return
         if(isinstance(c.entity, Enemy)):
-            c.entity.health -= 5
+            c.entity.health -= 1
+        if(isinstance(c.entity, Player)):
+            pass
         self.destroy()
     def _render(self):
         # move by one unit of velocity* direction every render cycle, velocity 1 is relative to 24 fps, so multiply by a ratio of this to the frame rate
         prop_pos: Vec2 = self.relative_position + ((self.facing * (self.velocity))*(24/frame_rate))
         self.relative_position = prop_pos
         gpos = self.floor.get_global_position(self.relative_position)
-        pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.y))
+        pygame.draw.rect(self.surface, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.y))
 # the entity floor contains a list of entities, [[Entity, GlobalPosition]]
 class EntityFloor(Layer):
     def __init__(self):
@@ -238,9 +243,9 @@ class EntityFloor(Layer):
            return blog.warn(f"{self.__class__.__name__}) Entity already registered.")
         else:
             # registers the layer to the screen by providing it with a surface to render to
-            if(self.screen == None):
+            if(self.surface == None):
                 blog.error(f"{self.__class__.__name__}) No screen registered; trying to assign None screen to entity.")
-            entity.screen = self.screen
+            entity.surface = self.surface
             # give entity access to entityfloor
             entity.floor = self
             self.entities.append(entity)       
@@ -320,7 +325,6 @@ class EntityFloor(Layer):
         
         
 g = Game()
-
 ns = newscreen()
 ns.active = True
 g.addScreen(ns)
@@ -345,4 +349,4 @@ ef.add_entity(Enemy(Vec2(64,32)))
 # ef.add_entity(enemy2)
 # ef.add_entity(proj)
 
-g.start()
+g.start(Logic())
