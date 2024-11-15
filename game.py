@@ -131,6 +131,7 @@ class Projectile(Entity):
         self.relative_position: Vec2 = ipos
         self.velocity = velocity
         self.source = source
+        self.dim = Vec2(16,16)
         self.collidable = True
         self.solid = False
     def _collision(self, c: Collision):
@@ -139,7 +140,7 @@ class Projectile(Entity):
         
         if(isinstance(c.entity, type(self))):
             return
-        self.velocity = 0
+        self.destroy()
     def _render(self):
         # move by one unit of velocity* direction every render cycle, velocity 1 is relative to 24 fps, so multiply by a ratio of this to the frame rate
         prop_pos: Vec2 = self.relative_position + ((self.facing * (self.velocity))*(24/frame_rate))
@@ -151,7 +152,7 @@ class Projectile(Entity):
         self.relative_position = prop_pos
         # self.floor.calc_collision()
         gpos = self.floor.get_global_position(self.relative_position)
-        pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(gpos.x, gpos.y, 16,16))
+        pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.y))
 # the entity floor contains a list of entities, [[Entity, GlobalPosition]]
 class EntityFloor(Layer):
     def __init__(self):
@@ -174,6 +175,7 @@ class EntityFloor(Layer):
                     # remove entities far away from the dimensions of the floor
                     self.entities.remove(e)
                 else:
+                    print(e.dim.arr())
                     collision = self.calc_collision(e)
                     if(collision):
                         e._collision(collision)
@@ -193,13 +195,13 @@ class EntityFloor(Layer):
         self.add_entity(player)
     def add_entity(self, entity: Entity):
         if entity.dim.x != self.gdim or entity.dim.y != self.gdim:
-            blog.erorr("Mismatch in entity widths.")
+            blog.warn("Mismatch in entity widths from grid dimensions.")
         if entity in self.entities:
-            blogger.blog().warn(f"{self.__class__.__name__}) Entity already registered.")
+            blog.warn(f"{self.__class__.__name__}) Entity already registered.")
         else:
             # registers the layer to the screen by providing it with a surface to render to
             if(self.screen == None):
-                blogger.blog().error(f"{self.__class__.__name__}) No screen registered; trying to assign None screen to entity.")
+                blog.error(f"{self.__class__.__name__}) No screen registered; trying to assign None screen to entity.")
             entity.screen = self.screen
             # give entity access to entityfloor
             entity.floor = self
@@ -227,12 +229,16 @@ class EntityFloor(Layer):
                 pos = o_pos
             else:
                 pos = entity.relative_position
-
+            # print(target.dim.arr())
+            # print(entity.dim.arr())
             # hitbox dimension calculations
             t_pos = target.relative_position.abs()
             t_min = Vec2(t_pos.x, t_pos.y)
             t_max = Vec2(t_pos.x+target.dim.x-1, t_pos.y+target.dim.y-1)
-            
+
+            # if(isinstance(entity, Projectile) and not isinstance(target, Projectile)):
+            #     blog.info(f"[{target.id}] {target.__class__.__name__}, {t_pos.arr()}")
+            #     blog.info(f"[{entity.id}] {entity.__class__.__name__}, {pos.arr()}")
             # if(pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x):
             #     print("collision on x")
             # if(pos.abs().y >= t_min.y) and (pos.abs().y <= t_max.y):
