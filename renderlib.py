@@ -2,12 +2,19 @@ import types
 import blogger
 import time
 import random
+import pygame
 from vector import Vec2
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
+class IntervalFunction:
+    def __init__(self, fun, interval):
+        self.fun = fun
+        self.interval = interval
+        self.last = 0
 class Listener():
     def __init__(self):
         # listeners must be initialized as None in order to be considered valid
         self.listeners = {}
+        self.interval_listeners = []
     # register a function to the listeners table
     def _listen(self, eventName, fun):
         allowed_events = self.listeners.keys()
@@ -19,12 +26,19 @@ class Listener():
                 blogger.blog.warn(f"{self.__class__.__name__}) Function passed for {eventName} listener is not a function.")
         else:
             blogger.blog.warn(f"{self.__class__.__name__}) Event {eventName} does not exist on {self.__class__.__name__}.")
+    # interval in s
+    def _listen_on_interval(self, interval, fun):
+        if not interval:
+            return blogger.blog.error(f"{self.__class__.__name__}) No interval passed for interval listeners.")
+        if fun != None and type(fun) == types.MethodType:
+            self.interval_listeners.append(IntervalFunction(fun, interval*1000))
+        else:
+            blogger.blog.warn(f"{self.__class__.__name__}) Function passed for interval listener is not a function.")
 class Renderer(Listener):
     def __init__(self):
         Listener.__init__(self)
         self.active = True
         self.id = str(int(time.time() * random.random() * random.random()))
-        self.listeners = {}
         self.listeners = {
             "event": None,
             "render": None,
@@ -40,7 +54,13 @@ class Renderer(Listener):
     def _start(self):
         if(self.listeners["start"] != None):
             self.listeners["start"]()
-
+    def _tick(self, ticks):
+        for int_fun in self.interval_listeners:
+            int_fun: IntervalFunction
+            if(ticks - int_fun.last) >= int_fun.interval:
+                int_fun.last = ticks
+                int_fun.fun()
+        
 # level 3 - layer, renders to a screen; renders to the screen's surface.
 class Layer(Renderer):
     def __init__(self):
