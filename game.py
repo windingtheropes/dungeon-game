@@ -3,6 +3,7 @@ import blogger
 import random
 from renderlib import Screen, Layer, Entity, Listener, Collision
 from vector import Vec2
+import math
 # initialize blogger for global use
 blogger.init("log/log")
 blog = blogger.blog()
@@ -23,7 +24,7 @@ class Game():
         self.screens = []
         
         # Active screen management
-        self.active_screen = None;
+        self.active_screen: Screen = None;
     def start(self):
         active_screen = None
         # start render loop
@@ -41,6 +42,8 @@ class Game():
                 screen._event(event)
             # render the active screen, by rendering its surface to the main screen
             game_screen.blit(self.active_screen._render(), (0,0))
+            # allow tick events
+            self.active_screen._tick()
             # refresh the screen 1/24 of a second for 24fps
             pygame.display.update()
             clock.tick(frame_rate)
@@ -81,13 +84,17 @@ class Hotbar(Layer):
 class newscreen(Screen):
     def __init__(self):
         Screen.__init__(self, pygame.Surface((512,512)))
-        # super(newscreen, self)._listen("render", self.render)
+    #     super(newscreen, self)._listen_on_interval(2,self.hi)
+    #     # super(newscreen, self)._listen("render", self.render)
+    # def hi(self):
+    #     print("hi")
 # Entity floor
 class Player(Entity):
     def __init__(self):
         Entity.__init__(self)
         self.dim = Vec2(32,32)
         super(Player, self)._listen("event", self.event)
+    
     def event(self, e):
         if(e.type == pygame.KEYDOWN):
             if(e.key in [pygame.K_DOWN, pygame.K_UP, pygame.K_LEFT, pygame.K_RIGHT]):
@@ -110,16 +117,50 @@ class Player(Entity):
         gpos: Vec2 = self.floor.get_global_position(self.relative_position)
         pygame.draw.rect(self.screen, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
 class Enemy(Entity):
-    def __init__(self):
+    def __init__(self, ipos:Vec2=None):
         Entity.__init__(self)
         self.collidable = True
         self.solid = True
-        self.relative_position = Vec2(32,128)
+        if(ipos):
+            self.relative_position = ipos
+        else:
+            self.relative_position = Vec2(32,128)
         self.dim = Vec2(32,32)
         self.health = 10
-    def _render(self):
-        # self.facing = -1 * self.floor.player.facing
         
+        self._listen_on_interval(2,self.find_player)
+        self._listen_on_interval(1/2,self.move)
+        self.target:Vec2 = Vec2(0,0)
+    def find_player(self):
+        # find the player every 2 seconds
+        self.target = self.floor.player.relative_position
+    def move(self):
+        # TEST IMPLEMENTATION OF PATHFINDING, RANDOMLY MOVE BY COMPONENT
+        dir = (self.target - self.relative_position)
+        
+        yx = random.randint(0,1)
+        prop_pos: Vec2 = Vec2(0,0)
+        if(yx == 0):
+            if(dir.x > 0):
+                prop_pos = self.relative_position + Vec2(self.dim.x,0)
+            else:
+                prop_pos = self.relative_position + Vec2(-1*self.dim.x,0)
+        else:
+            if(dir.y > 0):
+                prop_pos = self.relative_position + Vec2(0,self.dim.y)
+            else:
+                prop_pos = self.relative_position + Vec2(0,-1*self.dim.y)
+        # gets stuck here
+        # if(self.floor.is_legal_move(self, prop_pos)):
+        self.relative_position = prop_pos
+    def _render(self): 
+        self.floor: EntityFloor
+        diff = self.relative_position + (-1*(self.floor.player.relative_position))
+        # dir = -1*(diff.unit())
+        # self.facing = -1 * self.floor.player.facing
+        # self.floor.add_entity(Projectile(self.relative_position, 1, dir, self))
+        if(self.health <= 0):
+            self.destroy()
         # if(self.floor.is_legal_move(self, self.facing)):
         #     self.relative_position = self.relative_position + self.facing
         gpos: Vec2 = self.floor.get_global_position(self.relative_position)
@@ -159,7 +200,6 @@ class EntityFloor(Layer):
         self.player: Entity = None;
         self.dim: Vec2 = Vec2(384,384)
         # self.listeners = {"render": None, "event": None}
-        
     # layer does not have built in functionality for handling layers within (layer 3.1), so it must be added like it is implemented in screens (layer 2)
     def _render(self):
         if(self.listeners["render"] == None):
@@ -168,7 +208,7 @@ class EntityFloor(Layer):
             for e in self.entities:
                 rel_pos: Vec2 = e.relative_position
                 if(abs(rel_pos.x) > (self.dim.x) or abs(rel_pos.y) > (self.dim.y)) or e._del == True:
-                    # remove entities far away from the dimensions of the floor
+                    # remove entities far away from the dimensions of the floor, or when they're queued to be deleted
                     self.entities.remove(e)
                 else:
                     # print(e.dim.arr())
@@ -176,6 +216,8 @@ class EntityFloor(Layer):
                     if(collision):
                         e._collision(collision)
                     e._render()
+                    # ensure that interval functions can run at this level 
+                    e._tick()
         else:
             self.listeners["render"]()
     def _event(self, event):
@@ -243,13 +285,15 @@ class EntityFloor(Layer):
             if(
                 # entity position is greater than or equal to the minimum x; to the right
                 # entity position is less than or equal to the maximum x
-                ((pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x))
+                ((pos.x >= t_min.x) and (pos.x <= t_max.x))
                 
                 and 
                 # entity position is greater than or equal to the minimum y; down is positive (thanks pygame :) )
                 # entity position is less than or equal to the maximum y
-                ((pos.abs().y >= t_min.y) and (pos.abs().y <= t_max.y))
+                ((pos.y >= t_min.y) and (pos.y <= t_max.y))
               ):
+                # if(isinstance(entity, Projectile) and isinstance(target, Enemy)):
+                #     print("collision")
                 return Collision(target, pos)
             else:
                # proceed to check next entity in array
@@ -285,16 +329,20 @@ bd = Backdrop()
 hb = Hotbar()
 p = Player()
 enemy = Enemy()
-enemy2 = Enemy()
-enemy2.relative_position = Vec2(128,128)
+# enemy2 = Enemy()
+# enemy2.relative_position = Vec2(128,128)
 ef = EntityFloor()
 # proj = Projectile([0,0], 10, Vec2(1,0))
 ns.add_layer(bd)
 ns.add_layer(ef)
 ns.add_layer(hb)
 ef.add_player(p)
-ef.add_entity(enemy)
-ef.add_entity(enemy2)
+ef.add_entity(Enemy(Vec2(32,32)))
+ef.add_entity(Enemy(Vec2(64,64)))
+ef.add_entity(Enemy(Vec2(32,64)))
+ef.add_entity(Enemy(Vec2(64,32)))
+
+# ef.add_entity(enemy2)
 # ef.add_entity(proj)
 
 g.start()

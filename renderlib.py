@@ -54,11 +54,12 @@ class Renderer(Listener):
     def _start(self):
         if(self.listeners["start"] != None):
             self.listeners["start"]()
-    def _tick(self, ticks):
+    def _tick(self):
         for int_fun in self.interval_listeners:
+            now = pygame.time.get_ticks()
             int_fun: IntervalFunction
-            if(ticks - int_fun.last) >= int_fun.interval:
-                int_fun.last = ticks
+            if(now - int_fun.last) >= int_fun.interval:
+                int_fun.last = now
                 int_fun.fun()
         
 # level 3 - layer, renders to a screen; renders to the screen's surface.
@@ -66,7 +67,7 @@ class Layer(Renderer):
     def __init__(self):
         Renderer.__init__(self)
         self.screen = None
-        # super(newscreen, self)._listen("render", self.render)
+        
     # overriden render function, SAME SIGNATURE; gives a variable for a surface to render to.
     def _render(self):
         if(self.listeners["render"] != None):
@@ -105,9 +106,13 @@ class Screen(Renderer):
         self.surface.fill((0,0,0))
         if(self.listeners["render"] == None):
         # if no registered listener is present, default behaviour is to render all active layers
+            l: Layer
             for l in self.layers:
                 if l.active == True:
+                    # ensure that interval listeners can run at the screen level
+                    l._tick()
                     l._render()
+                    
         else:
             self.listeners["render"]()
         return self.surface

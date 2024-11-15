@@ -23,6 +23,11 @@ class Vec2():
             return Vec2(self.x + b.x, self.y + b.y)
         else:
             raise Exception("Cannot add Vec2 and non Vec2.")
+    def __sub__(self, b):
+        if(isinstance(b, Vec2)):
+            return Vec2(self.x - b.x, self.y - b.y)
+        else:
+            raise Exception("Cannot sub Vec2 and non Vec2.")
     def abs(self):
         return Vec2(abs(self.x), abs(self.y))
 # v = Vec2(25,5)
