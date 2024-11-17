@@ -13,7 +13,7 @@ class Logic():
     def __init__(self):
         self.components = []
         # Listener.__init__(self)
-    def get_component(self, name:str):
+    def get_component(self, name:str) -> LogicComponent:
         c: LogicComponent
         for c in self.components:
             if c.name == name:
