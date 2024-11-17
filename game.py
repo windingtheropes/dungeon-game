@@ -83,13 +83,11 @@ class Hotbar(Layer):
             else:
                 pygame.draw.rect(self.surface, (50,0,0), pygame.Rect(64+i*32, 448+16,32, 32))
         
-class newscreen(Screen):
+class MainScreen(Screen):
     def __init__(self):
         Screen.__init__(self, pygame.Surface((512,512)))
     #     super(newscreen, self)._listen_on_interval(2,self.hi)
     #     # super(newscreen, self)._listen("render", self.render)
-    # def hi(self):
-    #     print("hi")
 # Entity floor
 class Player(Entity):
     def __init__(self):
@@ -217,22 +215,19 @@ class GameFloor(EntityFloor):
         for i in range(0,4):
             self.add_entity(Enemy(self.get_pos_from_grid(veclib.randvec2(Vec2(0,0), self.dim/self.gdim))))
         
-g = Game()
-ns = newscreen()
-ns.active = True
-g.addScreen(ns)
+# initialize game render system
+# level 1        
+game = Game()
+# level 2
+mainscreen = MainScreen()
+mainscreen.active = True
+game.addScreen(mainscreen)
+# level 3+
+gamefloor = GameFloor()
+mainscreen.add_layer(Backdrop())
+mainscreen.add_layer(gamefloor)
+mainscreen.add_layer(Hotbar())
+gamefloor.add_player(Player())
 
-bd = Backdrop()
-hb = Hotbar()
-p = Player()
-ef = GameFloor()
-# proj = Projectile([0,0], 10, Vec2(1,0))
-ns.add_layer(bd)
-ns.add_layer(ef)
-ns.add_layer(hb)
-ef.add_player(p)
-
-# ef.add_entity(enemy2)
-# ef.add_entity(proj)
-
-g.start()
+# start the game
+game.start()
