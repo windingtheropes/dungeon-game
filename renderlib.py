@@ -3,7 +3,7 @@ import blogger
 import time
 import random
 import pygame
-from vector import Vec2
+from veclib import Vec2
 from gamelib import Logic
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
 class IntervalFunction:
@@ -19,7 +19,6 @@ class Listener():
     # register a function to the listeners table
     def _listen(self, eventName, fun):
         allowed_events = self.listeners.keys()
-        
         if eventName in allowed_events:
             if fun != None and type(fun) == types.MethodType:
                 self.listeners[eventName] = fun
@@ -45,7 +44,6 @@ class Renderer(Listener):
             "render": None,
             "start": None
         }
-        self.logic: Logic = None;
     # universal generic functions trigger registered listeners. this is the function that is run by the layer 1
     def _event(self, e):
         if(self.listeners["event"] != None):
@@ -69,7 +67,10 @@ class Layer(Renderer):
     def __init__(self):
         Renderer.__init__(self)
         self.surface:pygame.surface = None
-    
+    # override layer _start to add the stage parameter for on_game_start 
+    def _start(self, stage=0):
+        if(self.listeners["start"] != None):
+            self.listeners["start"](stage)
     # overriden render function, SAME SIGNATURE; gives a variable for a surface to render to.
     def _render(self):
         if(self.listeners["render"] != None):
@@ -84,6 +85,13 @@ class Screen(Renderer):
         Renderer.__init__(self)
         self.layers = []
         self.surface:pygame.surface = surface;
+    # run start function of all layers within no matter what.
+    def _start(self):
+        l: Layer
+        for l in self.layers:
+            l._start()
+        if(self.listeners["start"]):
+            self.listeners["start"]()
     # adding a layer to a screen involves registering it
     def add_layer(self, layer: Layer):
         if layer in self.layers:
@@ -149,6 +157,145 @@ class Entity(Layer):
     def destroy(self):
         self._del = True
 # entity floor base class; contains active entities
+class EntityFloor(Layer):
+    def __init__(self):
+        Layer.__init__(self)
+        self.entities = []
+        self.pos: Vec2 = Vec2(64,64)
+        # grid dimensions, as a reference unit for certain calculations
+        self.gdim = 32
+        self.player: Entity = None;
+        self.dim: Vec2 = Vec2(384,384)
+    # layer does not have built in functionality for handling layers within (layer 3.1), so it must be added like it is implemented in screens (layer 2)
+    def _render(self):
+        if(self.listeners["render"] == None):
+        # if no registered listener is present, default behaviour is to render all active layers
+            e: Entity
+            for e in self.entities:
+                rel_pos: Vec2 = e.relative_position
+                if(abs(rel_pos.x) > (self.dim.x) or abs(rel_pos.y) > (self.dim.y)) or e._del == True:
+                    # remove entities far away from the dimensions of the floor, or when they're queued to be deleted
+                    self.entities.remove(e)
+                else:
+                    # print(e.dim.arr())
+                    collision = self.calc_collision(e)
+                    if(collision):
+                        e._collision(collision)
+                    e._render()
+                    # ensure that interval functions can run at this level 
+                    e._tick()
+        else:
+            self.listeners["render"]()
+    def _event(self, event):
+        if(self.listeners["event"] == None):
+            # default behaviour if no event function is registered.
+            for entity in self.entities:
+                if entity.active==True:
+                    entity._event(event)
+        else:
+            self.listeners["event"](event)
+    # must override start function to trigger start on entities, as Layer does not have implementation for layers within
+    def _start(self, stage=0):
+        # run regardless of if there's a listener or not, to ensure always triggered
+        for entity in self.entities:
+            if entity.active==True:
+                entity._start(stage)
+        if(not self.listeners["start"] == None):
+            self.listeners["start"](stage)
+
+    def add_player(self, player: Entity):
+        self.player = player
+        self.add_entity(player)
+    def add_entity(self, entity: Entity):
+        # if entity.dim.x != self.gdim or entity.dim.y != self.gdim:
+        #     blog.warn("Mismatch in entity widths from grid dimensions.")
+        if entity in self.entities:
+           return blogger.blog().warn(f"{self.__class__.__name__}) Entity already registered.")
+        else:
+            # registers the layer to the screen by providing it with a surface to render to
+            if(self.surface == None):
+                blogger.blog().error(f"{self.__class__.__name__}) No screen registered; trying to assign None screen to entity.")
+            entity.surface = self.surface
+            # give entity access to entityfloor
+            entity.floor = self
+            self.entities.append(entity)       
+    # get the position relative to the screen, useful for rendering of entities 
+    def get_global_position(self, relative_position: Vec2):
+        return relative_position + self.pos
+    # **TODO** might delete later**: convert a relative position to grid coordinates, based on self.gdim (height of a grid square)
+    def get_grid_position(self, relative_position:Vec2):
+        # return position relative to the grid, knowing that all entities are the same size. 
+        return(relative_position*(1/self.gdim)).arr()
+    # convert grid position [1,0] to relative position, [1*self.gdim,0]
+    def get_pos_from_grid(self, grid_position:Vec2):
+        print(grid_position.arr())
+        return (grid_position * self.gdim)
+    # calculate collisions
+    def calc_collision(self, entity: Entity, o_pos: Vec2=None):
+        ### TODO CHECK FOR FOR DIRECT NEXT-TO COLLISIONS INSTEAD OF INSIDE COLLISIONS
+        target: Entity
+        if entity.collidable == False:
+            return None
+        for target in self.entities:
+            if target.collidable == False:
+                continue
+            # can't collide with self
+            if(target == entity):
+                continue
+            # override position with position if given
+            pos: Vec2
+            if(o_pos):
+                pos = o_pos
+            else:
+                pos = entity.relative_position
+            # hitbox dimension calculations
+            t_pos = target.relative_position.abs()
+            t_min = Vec2(t_pos.x, t_pos.y)
+            t_max = Vec2(t_pos.x+target.dim.x-1, t_pos.y+target.dim.y-1)
+
+            # if(isinstance(entity, Projectile) and not isinstance(target, Projectile)):
+            #     blog.info(f"[{target.id}] {target.__class__.__name__}, {t_pos.arr()}")
+            #     blog.info(f"[{entity.id}] {entity.__class__.__name__}, {pos.arr()}")
+            #     if(pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x):
+            #         print("collision on x")
+            #     if(pos.abs().y >= t_min.y) and (pos.abs().y <= t_max.y):
+            #         print("collision on y")
+            # print(t_min.arr())
+            if(
+                # entity position is greater than or equal to the minimum x; to the right
+                # entity position is less than or equal to the maximum x
+                ((pos.x >= t_min.x) and (pos.x <= t_max.x))
+                
+                and 
+                # entity position is greater than or equal to the minimum y; down is positive (thanks pygame :) )
+                # entity position is less than or equal to the maximum y
+                ((pos.y >= t_min.y) and (pos.y <= t_max.y))
+              ):
+                # if(isinstance(entity, Projectile) and isinstance(target, Enemy)):
+                #     print("collision")
+                return Collision(target, pos)
+            else:
+               # proceed to check next entity in array
+               continue
+        return None
+    # check if a move is legal for any solid entity
+    def is_legal_move(self, entity: Entity, dir:Vec2):
+        # position is in the top left of every entity, so subtract 1 from the amount of times h or w of entity goes into h or w of floor
+        max_x = (((self.dim.x)-entity.dim.x)/entity.dim.x)*entity.dim.x
+        max_y = (((self.dim.y)-entity.dim.y)/entity.dim.y)*entity.dim.y
+        prop_pos = entity.relative_position + dir
+        # dir = prop_pos - entity.relative_position
+        # if a collision is expected on this next move, with a solid entity, treat it as such **** TODO ** and don't allow the move
+        collision: Entity = self.calc_collision(entity, prop_pos)
+        if(collision and collision.entity.solid == True):
+            return False
+        # two movements can't be made at the same time currently, but worth checking for the future
+        if(dir.x != 0) and (prop_pos.x < 0 or prop_pos.x > max_x):
+            return False
+        if(dir.y != 0) and (prop_pos.y < 0 or prop_pos.y > max_y):
+            return False
+        return True
+
 
 class Collision():
     def __init__(self, entity: Entity, pos: Vec2):
