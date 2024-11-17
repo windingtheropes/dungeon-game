@@ -1,10 +1,10 @@
 import pygame
 import blogger
-import random
-from renderlib import Screen, Layer, Entity, Collision
+from renderlib import Screen, Layer, Entity, Collision, EntityFloor
 from gamelib import PlayerInfo, LogicComponent, Logic
-from vector import Vec2
-import math
+import veclib
+import random
+from veclib import Vec2
 # initialize blogger for global use
 blogger.init("log/log")
 blog = blogger.blog()
@@ -14,8 +14,8 @@ clock = pygame.time.Clock()
 game_screen = pygame.display.set_mode([512,512])
 
 frame_rate = 60
-# l = Logic()
-# l.add_component(PlayerInfo("PlayerInfo", 3))
+gameLogic = Logic()
+gameLogic.add_component(PlayerInfo("PlayerInfo", 3))
 
 # level 1
 class Game():
@@ -25,7 +25,7 @@ class Game():
         
         # Active screen management
         self.active_screen: Screen = None;
-    def start(self,l:Logic=Logic()):
+    def start(self):
         # start render loop
         while self.running == True:
             screen: Screen
@@ -34,7 +34,6 @@ class Game():
                     if(self.active_screen != None and screen.id == self.active_screen.id):
                         pass
                     else:
-                        screen.logic = l
                         self.active_screen = screen
                         screen._start()
             for event in pygame.event.get():
@@ -72,16 +71,17 @@ class Hotbar(Layer):
         super(Hotbar, self)._listen("render", self.render)
         self.dim = Vec2(512,64)
         self.pos = Vec2(0,448)
-    # pull universal player data from the logic class, and use it to update health
     def render(self, s:pygame.Surface):
         bd = pygame.Surface(self.dim.arr())
         bd.fill((0,0,0))
         s.blit(bd, self.pos.arr())
-        # for i in range(0,player.max_health):
-        #     if(player.health - i > 0):
-        #         pygame.draw.rect(self.screen, (255,0,0), pygame.Rect(64+i*32, 448+16,32, 32))
-        #     else:
-        #         pygame.draw.rect(self.screen, (50,0,0), pygame.Rect(64+i*32, 448+16,32, 32))
+        # pull universal player data from the logic class, and use it to update health
+        player:PlayerInfo= gameLogic.get_component("PlayerInfo")
+        for i in range(0,player.max_health):
+            if(player.health - i > 0):
+                pygame.draw.rect(self.surface, (255,0,0), pygame.Rect(64+i*32, 448+16,32, 32))
+            else:
+                pygame.draw.rect(self.surface, (50,0,0), pygame.Rect(64+i*32, 448+16,32, 32))
         
 class newscreen(Screen):
     def __init__(self):
@@ -114,7 +114,7 @@ class Player(Entity):
             # projectile test
             else:
                 if(e.key == pygame.K_e):
-                    self.floor.add_entity(Projectile((self.relative_position), 0.75, self.facing, self))
+                    self.floor.add_entity(Projectile((self.relative_position), 16, self.facing.unit(), self))
     def _render(self):
         gpos: Vec2 = self.floor.get_global_position(self.relative_position)
         pygame.draw.rect(self.surface, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
@@ -128,7 +128,7 @@ class Enemy(Entity):
         else:
             self.relative_position = Vec2(32,128)
         self.dim = Vec2(32,32)
-        self.health = 10
+        self.health = 3
         
         self._listen_on_interval(2,self.find_player)
         self._listen_on_interval(1/2,self.move)
@@ -137,10 +137,12 @@ class Enemy(Entity):
     def find_player(self):
         # find the player every 2 seconds
         self.target = self.floor.player.relative_position
+        dir = (self.target - self.relative_position)
+        self.floor.add_entity(Projectile(self.relative_position, 12, dir.unit(), self))
     def move(self):
         # TEST IMPLEMENTATION OF PATHFINDING, RANDOMLY MOVE BY COMPONENT
         dir = (self.target - self.relative_position)
-        self.floor.add_entity(Projectile(self.relative_position, 1, dir.unit(), self))
+        # self.floor.add_entity(Projectile(self.relative_position, 1, dir.unit(), self))
         yx = random.randint(0,1)
         prop_pos: Vec2 = Vec2(0,0)
         if(yx == 0):
@@ -168,8 +170,9 @@ class Enemy(Entity):
         #     self.relative_position = self.relative_position + self.facing
         gpos: Vec2 = self.floor.get_global_position(self.relative_position)
         pygame.draw.rect(self.surface, (255,0,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
+# customizable projectile class for attacks
 class Projectile(Entity):
-    def __init__(self, ipos = Vec2(0,0), velocity=1, direction=Vec2(1,0), source:Entity=None):
+    def __init__(self, ipos = Vec2(0,0), velocity=1, direction=Vec2(1,0), source:Entity=None, damage:int=1):
         Entity.__init__(self)
         self.facing: Vec2 = direction
         self.relative_position: Vec2 = ipos
@@ -178,151 +181,41 @@ class Projectile(Entity):
         self.dim = Vec2(16,16)
         self.collidable = True
         self.solid = False
+        self.damage = damage
     def _collision(self, c: Collision):
+        # don't damage the entity which shot the projectile
         if(c.entity == self.source):
             return
-        
-        if(isinstance(c.entity, type(self))):
-            return
-        if(isinstance(c.entity, Enemy)):
-            c.entity.health -= 1
+        # only deal damage to other entities if the bullet came from the player (enemies can't hurt each other)
+        if(isinstance(c.entity, Enemy) and isinstance(self.source, Player)):
+            # reduce health of entity by the damage of the bullet
+            c.entity.health -= self.damage
+            self.destroy()
         if(isinstance(c.entity, Player)):
-            pass
-        self.destroy()
+            # access the game logic, and player data, to update health safely
+            player: PlayerInfo = gameLogic.get_component("PlayerInfo")
+            player.health -= self.damage
+            self.destroy()
+        
     def _render(self):
-        # move by one unit of velocity* direction every render cycle, velocity 1 is relative to 24 fps, so multiply by a ratio of this to the frame rate
+        # move the bullet by one unit * velocity in the direction self.facing * the ratio of 24fps to the frame rate (velocity of 1 is based on 24fps)
         prop_pos: Vec2 = self.relative_position + ((self.facing * (self.velocity))*(24/frame_rate))
         self.relative_position = prop_pos
         gpos = self.floor.get_global_position(self.relative_position)
         pygame.draw.rect(self.surface, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.y))
-# the entity floor contains a list of entities, [[Entity, GlobalPosition]]
-class EntityFloor(Layer):
+# entity floor for game; contains entities and functionality
+class GameFloor(EntityFloor):
     def __init__(self):
-        Layer.__init__(self)
-        self.entities = []
+        EntityFloor.__init__(self)
         self.pos: Vec2 = Vec2(64,64)
         self.gdim = 32
         self.player: Entity = None;
         self.dim: Vec2 = Vec2(384,384)
-        # self.listeners = {"render": None, "event": None}
-    # layer does not have built in functionality for handling layers within (layer 3.1), so it must be added like it is implemented in screens (layer 2)
-    def _render(self):
-        if(self.listeners["render"] == None):
-        # if no registered listener is present, default behaviour is to render all active layers
-            e: Entity
-            for e in self.entities:
-                rel_pos: Vec2 = e.relative_position
-                if(abs(rel_pos.x) > (self.dim.x) or abs(rel_pos.y) > (self.dim.y)) or e._del == True:
-                    # remove entities far away from the dimensions of the floor, or when they're queued to be deleted
-                    self.entities.remove(e)
-                else:
-                    # print(e.dim.arr())
-                    collision = self.calc_collision(e)
-                    if(collision):
-                        e._collision(collision)
-                    e._render()
-                    # ensure that interval functions can run at this level 
-                    e._tick()
-        else:
-            self.listeners["render"]()
-    def _event(self, event):
-        if(self.listeners["event"] == None):
-            # default behaviour if no event function is registered.
-            for entity in self.entities:
-                if entity.active==True:
-                    entity._event(event)
-        else:
-            self.listeners["event"](event)
-    def add_player(self, player: Entity):
-        self.player = player
-        self.add_entity(player)
-    def add_entity(self, entity: Entity):
-        # if entity.dim.x != self.gdim or entity.dim.y != self.gdim:
-        #     blog.warn("Mismatch in entity widths from grid dimensions.")
-        if entity in self.entities:
-           return blog.warn(f"{self.__class__.__name__}) Entity already registered.")
-        else:
-            # registers the layer to the screen by providing it with a surface to render to
-            if(self.surface == None):
-                blog.error(f"{self.__class__.__name__}) No screen registered; trying to assign None screen to entity.")
-            entity.surface = self.surface
-            # give entity access to entityfloor
-            entity.floor = self
-            self.entities.append(entity)       
-    # get the position relative to the screen, useful for rendering of entities 
-    def get_global_position(self, relative_position: Vec2):
-        return relative_position + self.pos
-    def get_grid_position(self, relative_position:Vec2):
-        # return position relative to the grid, knowing that all entities are the same size. 
-        return(relative_position*(1/self.gdim)).arr()
-    # calculate collisions
-    def calc_collision(self, entity: Entity, o_pos: Vec2=None):
-        target: Entity
-        if entity.collidable == False:
-            return None
-        for target in self.entities:
-            if target.collidable == False:
-                continue
-            # can't collide with self
-            if(target == entity):
-                continue
-            # override position with position if given
-            pos: Vec2
-            if(o_pos):
-                pos = o_pos
-            else:
-                pos = entity.relative_position
-            # print(target.dim.arr())
-            # print(entity.dim.arr())
-            # hitbox dimension calculations
-            t_pos = target.relative_position.abs()
-            t_min = Vec2(t_pos.x, t_pos.y)
-            t_max = Vec2(t_pos.x+target.dim.x-1, t_pos.y+target.dim.y-1)
-
-            # if(isinstance(entity, Projectile) and not isinstance(target, Projectile)):
-            #     blog.info(f"[{target.id}] {target.__class__.__name__}, {t_pos.arr()}")
-            #     blog.info(f"[{entity.id}] {entity.__class__.__name__}, {pos.arr()}")
-            #     if(pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x):
-            #         print("collision on x")
-            #     if(pos.abs().y >= t_min.y) and (pos.abs().y <= t_max.y):
-            #         print("collision on y")
-            # print(t_min.arr())
-            if(
-                # entity position is greater than or equal to the minimum x; to the right
-                # entity position is less than or equal to the maximum x
-                ((pos.x >= t_min.x) and (pos.x <= t_max.x))
-                
-                and 
-                # entity position is greater than or equal to the minimum y; down is positive (thanks pygame :) )
-                # entity position is less than or equal to the maximum y
-                ((pos.y >= t_min.y) and (pos.y <= t_max.y))
-              ):
-                # if(isinstance(entity, Projectile) and isinstance(target, Enemy)):
-                #     print("collision")
-                return Collision(target, pos)
-            else:
-               # proceed to check next entity in array
-               continue
-        return None
-    # check if a move is legal for any solid entity
-    def is_legal_move(self, entity: Entity, dir:Vec2):
-        # position is in the top left of every entity, so subtract 1 from the amount of times h or w of entity goes into h or w of floor
-        max_x = (((self.dim.x)-entity.dim.x)/entity.dim.x)*entity.dim.x
-        max_y = (((self.dim.y)-entity.dim.y)/entity.dim.y)*entity.dim.y
-        prop_pos = entity.relative_position + dir
-        # dir = prop_pos - entity.relative_position
-        # if a collision is expected on this next move, with a solid entity, treat it as such **** TODO ** and don't allow the move
-        collision: Entity = self.calc_collision(entity, prop_pos)
-        if(collision and collision.entity.solid == True):
-            return False
-        # two movements can't be made at the same time currently, but worth checking for the future
-        if(dir.x != 0) and (prop_pos.x < 0 or prop_pos.x > max_x):
-            return False
-        if(dir.y != 0) and (prop_pos.y < 0 or prop_pos.y > max_y):
-            return False
-        return True
-
-        
+        self._listen("start", self.start)
+    # initialize a sample level with 4 entities at random grid positions
+    def start(self, stage=0):
+        for i in range(0,4):
+            self.add_entity(Enemy(self.get_pos_from_grid(veclib.randvec2(Vec2(0,0), self.dim/self.gdim))))
         
 g = Game()
 ns = newscreen()
@@ -332,21 +225,14 @@ g.addScreen(ns)
 bd = Backdrop()
 hb = Hotbar()
 p = Player()
-enemy = Enemy()
-# enemy2 = Enemy()
-# enemy2.relative_position = Vec2(128,128)
-ef = EntityFloor()
+ef = GameFloor()
 # proj = Projectile([0,0], 10, Vec2(1,0))
 ns.add_layer(bd)
 ns.add_layer(ef)
 ns.add_layer(hb)
 ef.add_player(p)
-ef.add_entity(Enemy(Vec2(32,32)))
-ef.add_entity(Enemy(Vec2(64,64)))
-ef.add_entity(Enemy(Vec2(32,64)))
-ef.add_entity(Enemy(Vec2(64,32)))
 
 # ef.add_entity(enemy2)
 # ef.add_entity(proj)
 
-g.start(Logic())
+g.start()
