@@ -41,6 +41,7 @@ class Game():
                     self.running = False
                 screen._event(event)
             # render the active screen, by rendering its surface to the main screen
+            self.active_screen._pre_render()
             game_screen.blit(self.active_screen._render(), (0,0))
             # allow tick events
             self.active_screen._tick()

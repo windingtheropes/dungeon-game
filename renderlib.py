@@ -41,6 +41,7 @@ class Renderer(Listener):
         self.id = str(int(time.time() * random.random() * random.random()))
         self.listeners = {
             "event": None,
+            "pre_render": None,
             "render": None,
             "start": None
         }
@@ -51,6 +52,10 @@ class Renderer(Listener):
     def _render(self):
         if(self.listeners["render"] != None):
             self.listeners["render"]()
+    # pre render; meant for working within the game loop, not rendering to screen
+    def _pre_render(self):
+        if(self.listeners["pre_render"] != None):
+            self.listeners["pre_render"]()
     def _start(self):
         if(self.listeners["start"] != None):
             self.listeners["start"]()
@@ -111,6 +116,13 @@ class Screen(Renderer):
                     l._event(e)
         else:
             self.listeners["event"](e)
+    def _pre_render(self):
+        # run pre render on inside layers automatically, allow for flexibility regardless whether prerender used on Screen class
+        for l in self.layers:
+            if l.active==True:
+                l._pre_render()
+        if(self.listeners["pre_render"] != None):
+            self.listeners["pre_render"]()
     def _render(self):
         # render the background color as a backup, in order to prevent unexpected behaviour
         self.surface.fill((0,0,0))
@@ -172,18 +184,18 @@ class EntityFloor(Layer):
         # if no registered listener is present, default behaviour is to render all active layers
             e: Entity
             for e in self.entities:
-                rel_pos: Vec2 = e.relative_position
-                if(abs(rel_pos.x) > (self.dim.x) or abs(rel_pos.y) > (self.dim.y)) or e._del == True:
-                    # remove entities far away from the dimensions of the floor, or when they're queued to be deleted
-                    self.entities.remove(e)
-                else:
-                    # print(e.dim.arr())
-                    collision = self.calc_collision(e)
-                    if(collision):
-                        e._collision(collision)
-                    e._render()
-                    # ensure that interval functions can run at this level 
-                    e._tick()
+                if e.active == True:
+                    rel_pos: Vec2 = e.relative_position
+                    if(abs(rel_pos.x) > (self.dim.x) or abs(rel_pos.y) > (self.dim.y)) or e._del == True:
+                        # remove entities far away from the dimensions of the floor, or when they're queued to be deleted
+                        self.entities.remove(e)
+                    else:
+                        collision = self.calc_collision(e)
+                        if(collision):
+                            e._collision(collision)
+                        e._render()
+                        # ensure that interval functions can run at this level 
+                        e._tick()
         else:
             self.listeners["render"]()
     def _event(self, event):
@@ -202,7 +214,13 @@ class EntityFloor(Layer):
                 entity._start(stage)
         if(not self.listeners["start"] == None):
             self.listeners["start"](stage)
-
+    def _pre_render(self):
+        # run regardless of if there's a listener or not, to ensure always triggered
+        for entity in self.entities:
+            if entity.active==True:
+                entity._pre_render()
+        if(not self.listeners["_pre_render"] == None):
+            self.listeners["_pre_render"]()
     def add_player(self, player: Entity):
         self.player = player
         self.add_entity(player)
@@ -228,7 +246,6 @@ class EntityFloor(Layer):
         return(relative_position*(1/self.gdim)).arr()
     # convert grid position [1,0] to relative position, [1*self.gdim,0]
     def get_pos_from_grid(self, grid_position:Vec2):
-        print(grid_position.arr())
         return (grid_position * self.gdim)
     # calculate collisions
     def calc_collision(self, entity: Entity, o_pos: Vec2=None):
@@ -253,14 +270,11 @@ class EntityFloor(Layer):
             t_min = Vec2(t_pos.x, t_pos.y)
             t_max = Vec2(t_pos.x+target.dim.x-1, t_pos.y+target.dim.y-1)
 
-            # if(isinstance(entity, Projectile) and not isinstance(target, Projectile)):
-            #     blog.info(f"[{target.id}] {target.__class__.__name__}, {t_pos.arr()}")
-            #     blog.info(f"[{entity.id}] {entity.__class__.__name__}, {pos.arr()}")
             #     if(pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x):
             #         print("collision on x")
             #     if(pos.abs().y >= t_min.y) and (pos.abs().y <= t_max.y):
             #         print("collision on y")
-            # print(t_min.arr())
+            
             if(
                 # entity position is greater than or equal to the minimum x; to the right
                 # entity position is less than or equal to the maximum x
@@ -271,8 +285,6 @@ class EntityFloor(Layer):
                 # entity position is less than or equal to the maximum y
                 ((pos.y >= t_min.y) and (pos.y <= t_max.y))
               ):
-                # if(isinstance(entity, Projectile) and isinstance(target, Enemy)):
-                #     print("collision")
                 return Collision(target, pos)
             else:
                # proceed to check next entity in array
