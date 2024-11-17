@@ -7,10 +7,12 @@ from veclib import Vec2
 from gamelib import Logic
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
 class IntervalFunction:
-    def __init__(self, fun, interval):
+    def __init__(self, fun, interval, rep):
         self.fun = fun
         self.interval = interval
         self.last = 0
+        self.repeats = rep
+        self.runs = 0
 class Listener():
     def __init__(self):
         # listeners must be initialized as None in order to be considered valid
@@ -27,13 +29,26 @@ class Listener():
         else:
             blogger.blog.warn(f"{self.__class__.__name__}) Event {eventName} does not exist on {self.__class__.__name__}.")
     # interval in s
-    def _listen_on_interval(self, interval, fun):
+    def _listen_on_interval(self, interval, fun, rep=0):
         if not interval:
             return blogger.blog.error(f"{self.__class__.__name__}) No interval passed for interval listeners.")
         if fun != None and type(fun) == types.MethodType:
-            self.interval_listeners.append(IntervalFunction(fun, interval*1000))
+            self.interval_listeners.append(IntervalFunction(fun, interval*1000, rep))
         else:
             blogger.blog.warn(f"{self.__class__.__name__}) Function passed for interval listener is not a function.")
+    def _tick(self):
+        for int_fun in self.interval_listeners:
+            now = pygame.time.get_ticks()
+            int_fun: IntervalFunction
+            # if there's a limit on how many times this listener will run, and it's been hit, remove the listener and continue checking for others
+            if(int_fun.repeats != 0 and int_fun.runs == int_fun.repeats):
+                self.interval_listeners.remove(int_fun)
+                continue
+            if(now - int_fun.last) >= int_fun.interval:
+                int_fun.last = now
+                int_fun.fun()
+                if(int_fun.repeats != 0):
+                    int_fun.runs += 1
 class Renderer(Listener):
     def __init__(self):
         Listener.__init__(self)
@@ -54,18 +69,12 @@ class Renderer(Listener):
             self.listeners["render"]()
     # pre render; meant for working within the game loop, not rendering to screen
     def _pre_render(self):
+        pass
         if(self.listeners["pre_render"] != None):
             self.listeners["pre_render"]()
     def _start(self):
         if(self.listeners["start"] != None):
             self.listeners["start"]()
-    def _tick(self):
-        for int_fun in self.interval_listeners:
-            now = pygame.time.get_ticks()
-            int_fun: IntervalFunction
-            if(now - int_fun.last) >= int_fun.interval:
-                int_fun.last = now
-                int_fun.fun()
         
 # level 3 - layer, renders to a screen; renders to the screen's surface.
 class Layer(Renderer):
@@ -147,13 +156,9 @@ class Entity(Layer):
         self.collidable = True
         # if solid, most items cannot pass through this entity
         self.solid = True
-        # register all allowed events; includes collision
-        self.listeners = {
-            "event":None,
-            "render":None,
-            "start":None,
-            "collision":None
-        }
+        # append collision to allowed events for entity
+        self.listeners.update({"collision": None})
+        
         # relative to entity floor
         self.relative_position = Vec2(0,0)
         self.dim = Vec2(32,32)
@@ -219,8 +224,8 @@ class EntityFloor(Layer):
         for entity in self.entities:
             if entity.active==True:
                 entity._pre_render()
-        if(not self.listeners["_pre_render"] == None):
-            self.listeners["_pre_render"]()
+        if(not self.listeners["pre_render"] == None):
+            self.listeners["pre_render"]()
     def add_player(self, player: Entity):
         self.player = player
         self.add_entity(player)
