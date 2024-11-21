@@ -235,14 +235,6 @@ class GameFloor(EntityFloor):
         self.player: Entity = None;
         self.dim: Vec2 = Vec2(384,384)
         self._listen("start", self.start)
-    # load a level
-    def load_level(self, level:Level):
-        self.reset()
-        # move the player to the spawnpoint of the level
-        self.player.relative_position = self.get_pos_from_grid(level.player_spawn_grid)
-        # place entities based on their emaps, and the entity class attached to the key in the legend
-        for key in level.emaps.keys():
-            self.load_entities(level.legend[key], level.emaps[key])
     # initialize a sample level with 4 entities at random grid positions
     def start(self, stage=0):
         self.load_level(Level("maps/l1.txt", {'1':Wall, '2':Enemy}))

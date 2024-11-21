@@ -4,7 +4,7 @@ import time
 import random
 import pygame
 from veclib import Vec2
-from gamelib import Logic
+from gamelib import Level
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
 class IntervalFunction:
     def __init__(self, fun, interval, rep):
@@ -317,6 +317,14 @@ class EntityFloor(Layer):
         if(dir.y != 0) and (prop_pos.y < 0 or prop_pos.y > max_y):
             return False
         return True
+    # load a level
+    def load_level(self, level:Level):
+        self.reset()
+        # move the player to the spawnpoint of the level
+        self.player.relative_position = self.get_pos_from_grid(level.player_spawn_grid)
+        # place entities based on their emaps, and the entity class attached to the key in the legend
+        for key in level.emaps.keys():
+            self.load_entities(level.legend[key], level.emaps[key])
     def reset(self):
         # don't remove the player
         for e in self.entities:
