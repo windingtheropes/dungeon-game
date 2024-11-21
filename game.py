@@ -1,6 +1,7 @@
 import pygame
 import blogger
 from renderlib import Screen, Layer, Entity, Collision, EntityFloor
+import gamelib
 from gamelib import PlayerInfo, LogicComponent, Logic
 import veclib
 import random
@@ -129,28 +130,34 @@ class Enemy(Entity):
         self.dim = Vec2(32,32)
         self.health = 3
         
+        # find the player every 2 seconds
         self._listen_on_interval(2,self.find_player)
+        # fire bullets every 2.25 seconds
+        self._listen_on_interval(9/4,self.fire_projectile)
+        # move based on player location, every 1/2 seconds
         self._listen_on_interval(1/2,self.move)
         self.target:Vec2 = Vec2(0,0)
-    
+        self.dir:Vec2 = Vec2(0,0)
+
+    def fire_projectile(self):
+        # offsetdir is a direction with magnitude 1 (unit vector), but has been randomly modified with a slight offset to make the game less impossible :)
+        offsetdir:Vec2 = (self.dir + veclib.randvec2(Vec2(0,0), Vec2(1,1))).unit()
+        self.floor.add_entity(Projectile(self.relative_position, 12, offsetdir, self))
     def find_player(self):
-        # find the player every 2 seconds
+        # find the player every 2 seconds, and update values for the enemy
         self.target = self.floor.player.relative_position
-        dir = (self.target - self.relative_position)
-        self.floor.add_entity(Projectile(self.relative_position, 12, dir.unit(), self))
+        self.dir = (self.target - self.relative_position)
     def move(self):
         # TEST IMPLEMENTATION OF PATHFINDING, RANDOMLY MOVE BY COMPONENT
-        dir = (self.target - self.relative_position)
-        # self.floor.add_entity(Projectile(self.relative_position, 1, dir.unit(), self))
         yx = random.randint(0,1)
         prop_pos: Vec2 = Vec2(0,0)
         if(yx == 0):
-            if(dir.x > 0):
+            if(self.dir.x > 0):
                 prop_pos = self.relative_position + Vec2(self.dim.x,0)
             else:
                 prop_pos = self.relative_position + Vec2(-1*self.dim.x,0)
         else:
-            if(dir.y > 0):
+            if(self.dir.y > 0):
                 prop_pos = self.relative_position + Vec2(0,self.dim.y)
             else:
                 prop_pos = self.relative_position + Vec2(0,-1*self.dim.y)
@@ -169,6 +176,20 @@ class Enemy(Entity):
         #     self.relative_position = self.relative_position + self.facing
         gpos: Vec2 = self.floor.get_global_position(self.relative_position)
         pygame.draw.rect(self.surface, (255,0,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
+class Wall(Entity):
+    def __init__(self, ipos:Vec2=Vec2(0,0), colour=(25,25,75)):
+        Entity.__init__(self)
+        self.collidable = True
+        self.colour = colour
+        self.solid = True
+        self.relative_position = ipos
+        # must be gdim of entity floor
+        self.dim = Vec2(32,32)
+    
+    def _render(self): 
+        gpos = self.floor.get_global_position(self.relative_position)
+        pygame.draw.rect(self.surface, self.colour, pygame.Rect(gpos.x,gpos.y, self.dim.x, self.dim.x))
+
 # customizable projectile class for attacks
 class Projectile(Entity):
     def __init__(self, ipos = Vec2(0,0), velocity=1, direction=Vec2(1,0), source:Entity=None, damage:int=1):
@@ -195,6 +216,9 @@ class Projectile(Entity):
             player: PlayerInfo = gameLogic.get_component("PlayerInfo")
             player.health -= self.damage
             self.destroy()
+        # bullets can't pass through solid objects
+        if(c.entity.solid == True):
+            self.destroy()
         
     def _render(self):
         # move the bullet by one unit * velocity in the direction self.facing * the ratio of 24fps to the frame rate (velocity of 1 is based on 24fps)
@@ -213,6 +237,9 @@ class GameFloor(EntityFloor):
         self._listen("start", self.start)
     # initialize a sample level with 4 entities at random grid positions
     def start(self, stage=0):
+        # generate walls
+        grid = gamelib.parse_efile("maps/wall1.txt")
+        self.load_entities(Wall, grid)
         for i in range(0,4):
             self.add_entity(Enemy(self.get_pos_from_grid(veclib.randvec2(Vec2(0,0), self.dim/self.gdim))))
         
