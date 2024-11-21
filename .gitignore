@@ -1,4 +1,4 @@
-log/
+src/log/
 .venv/
 pyvenv.cfg
 __pycache__/
