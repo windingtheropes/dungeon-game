@@ -1,3 +1,7 @@
+# renderlib by Jack Anderson
+# 11/20/24
+# implements Level 1,2,3 render structure per https://docs.google.com/document/d/1gRGcpoxPOT0HK_joQM001BRy1xtQ2T49LbS1ujOnfrU
+# game engine written for use with pygame
 import types
 import blogger
 import time

@@ -1,4 +1,6 @@
-# logging library
+# blogger logging library by Jack Anderson
+# 11/20/24
+# for easier error tracking and debugging in console
 from datetime import datetime
 class blogger():
     def __init__(self, file=f"log"):

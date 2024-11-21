@@ -1,8 +1,9 @@
+# veclib by Jack Anderson
+# 11/20/24
+# contains Vec2 (2D vector) Class and associated helper functions
 import math
 import blogger
 import random 
-# veclib by jack anderson
-# 2d vector class
 class Vec2():
     def __init__(self, x:float=0, y:float=0):
         self.x:float = float(x)

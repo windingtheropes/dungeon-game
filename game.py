@@ -1,3 +1,6 @@
+# dungeon game by Jack Anderson
+# 11/20/24
+# contains custom class implementations and functions specific to game functionality 
 import pygame
 import blogger
 from renderlib import Screen, Layer, Entity, Collision, EntityFloor

@@ -1,4 +1,6 @@
-# from renderlib import Listener
+# gamelib by jack anderson
+# 11/20/24
+# contains game specific classes and functions
 import blogger
 blogger.init("log/")
 from veclib import Vec2
