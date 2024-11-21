@@ -1,5 +1,6 @@
 # from renderlib import Listener
 import blogger
+from veclib import Vec2
 class LogicComponent:
     def __init__(self, name:str):
         self.name = name
@@ -24,3 +25,34 @@ class Logic():
             return blogger.blog().warn(f"Component with name {component.name} already registered.")
         else:
             self.components.append(component)
+# parse an entity grid file into an array
+def parse_efile(path):
+    f = open(path, "r")
+    grid = []
+    # every line is a row (y value)
+    for l in f:
+        l = l.strip()
+        row = []
+        # every cell in a row is the x value
+        for cell in l:
+            try:
+                row.append(int(cell))
+            except:
+                blogger.blog().error("Non-int found in file.")
+        grid.append(row)
+    f.close()    
+    return grid
+
+class EntityMap():
+    # entity class, not initialized
+    def __init__(self, entity, map):
+        self.entity = entity
+        self.map = map
+# defines a level in the game (walls, entities, player spawn point)
+class Level():
+    def __init__(self):
+        self.components = [] 
+        self.player_spawn = Vec2(0,0)
+    def add_component(self, map:EntityMap):
+        if not map in self.components:
+            self.components.append(map)
