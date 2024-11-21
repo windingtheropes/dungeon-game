@@ -15,6 +15,7 @@ class blogger():
         self._log("warn", m)
     def error(self, m):
         self._log("error", m)
+        raise Exception(m)
     def info(self, m):
         self._log("info", m)
 
