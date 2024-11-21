@@ -4,7 +4,6 @@
 import pygame
 import blogger
 from renderlib import Screen, Layer, Entity, Collision, EntityFloor
-import gamelib
 from gamelib import PlayerInfo, LogicComponent, Logic, Level
 import veclib
 import random
@@ -17,7 +16,7 @@ pygame.init()
 clock = pygame.time.Clock()
 game_screen = pygame.display.set_mode([512,512])
 
-frame_rate = 60
+frame_rate = 24
 gameLogic = Logic()
 gameLogic.add_component(PlayerInfo("PlayerInfo", 3))
 
