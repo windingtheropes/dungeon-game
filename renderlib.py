@@ -173,6 +173,7 @@ class Entity(Layer):
             self.listeners["collision"](c)   
     def destroy(self):
         self._del = True
+
 # entity floor base class; contains active entities
 class EntityFloor(Layer):
     def __init__(self):
@@ -195,7 +196,7 @@ class EntityFloor(Layer):
                         # remove entities far away from the dimensions of the floor, or when they're queued to be deleted
                         self.entities.remove(e)
                     else:
-                        collision = self.calc_collision(e)
+                        collision = self.calc_collision(e, e.relative_position)
                         if(collision):
                             e._collision(collision)
                         e._render()
@@ -229,7 +230,7 @@ class EntityFloor(Layer):
     def add_player(self, player: Entity):
         self.player = player
         self.add_entity(player)
-    def add_entity(self, entity: Entity):
+    def add_entity(self, entity: Entity, force:bool=False):
         # if entity.dim.x != self.gdim or entity.dim.y != self.gdim:
         #     blog.warn("Mismatch in entity widths from grid dimensions.")
         if entity in self.entities:
@@ -245,15 +246,14 @@ class EntityFloor(Layer):
     # get the position relative to the screen, useful for rendering of entities 
     def get_global_position(self, relative_position: Vec2):
         return relative_position + self.pos
-    # **TODO** might delete later**: convert a relative position to grid coordinates, based on self.gdim (height of a grid square)
+    # *convert a relative position to grid coordinates, based on self.gdim (height of a grid square)
     def get_grid_position(self, relative_position:Vec2):
         # return position relative to the grid, knowing that all entities are the same size. 
-        return(relative_position*(1/self.gdim)).arr()
+        return(relative_position*(1/self.gdim))
     # convert grid position [1,0] to relative position, [1*self.gdim,0]
     def get_pos_from_grid(self, grid_position:Vec2):
-        return (grid_position * self.gdim)
-    # calculate collisions
-    def calc_collision(self, entity: Entity, o_pos: Vec2=None):
+        return (grid_position * self.gdim)        
+    def calc_collision(self, entity: Entity, relative_position: Vec2=None):
         ### TODO CHECK FOR FOR DIRECT NEXT-TO COLLISIONS INSTEAD OF INSIDE COLLISIONS
         target: Entity
         if entity.collidable == False:
@@ -264,12 +264,11 @@ class EntityFloor(Layer):
             # can't collide with self
             if(target == entity):
                 continue
-            # override position with position if given
+
+            # shorthand
             pos: Vec2
-            if(o_pos):
-                pos = o_pos
-            else:
-                pos = entity.relative_position
+            pos = relative_position
+
             # hitbox dimension calculations
             t_pos = target.relative_position.abs()
             t_min = Vec2(t_pos.x, t_pos.y)
@@ -312,7 +311,29 @@ class EntityFloor(Layer):
         if(dir.y != 0) and (prop_pos.y < 0 or prop_pos.y > max_y):
             return False
         return True
-
+    def reset(self):
+        self.entities = []
+    # add entities in bulk to the grid, based on a map
+    # takes an entity Class, not an initialized entity, so that it can create multiple.
+    def load_entities(self, entity, map=[]):
+        # max x and y in grid terms
+        self.max_grid: Vec2 = self.get_grid_position(self.dim)
+        # make sure dimensions match floor size
+        if(len(map) != self.max_grid.y):
+            return blogger.blog().warn("[load_entities] Map height does not match grid height")
+        for row in map:
+            if(len(row) != self.max_grid.x):
+                return blogger.blog().warn("[load_entities] Map width does not match grid width")
+        # row is y
+        for row in range(0,len(map)):
+            # cell is x
+            for cell in range(0,len(map[row])):
+                g_coord = Vec2(cell, row)
+                cellval = map[row][cell]
+                # if the cell = 1, then add an entity
+                if(cellval == 1):
+                    newe: Entity = entity(self.get_pos_from_grid(g_coord))
+                    self.add_entity(newe)
 
 class Collision():
     def __init__(self, entity: Entity, pos: Vec2):
