@@ -236,6 +236,12 @@ class EntityFloor(Layer):
         if entity in self.entities:
            return blogger.blog().warn(f"{self.__class__.__name__}) Entity already registered.")
         else:
+            # **TODO** maybe remove this later in favour of Level class
+            # # if not being forced, will **eventually** reject entities that are added at same pos of other collidable
+            # if(force == False):
+            #     if(self.calc_collision(entity, entity.relative_position) and entity.solid == True):
+            #         blogger.blog().warn("[add_entity] Trying to add an entity where there already is one.")
+            #         return
             # registers the layer to the screen by providing it with a surface to render to
             if(self.surface == None):
                 blogger.blog().error(f"{self.__class__.__name__}) No screen registered; trying to assign None screen to entity.")
@@ -312,7 +318,10 @@ class EntityFloor(Layer):
             return False
         return True
     def reset(self):
-        self.entities = []
+        # don't remove the player
+        for e in self.entities:
+            if e != self.player:
+                self.entities.remove(e)
     # add entities in bulk to the grid, based on a map
     # takes an entity Class, not an initialized entity, so that it can create multiple.
     def load_entities(self, entity, map=[]):
@@ -334,7 +343,7 @@ class EntityFloor(Layer):
                 if(cellval == 1):
                     newe: Entity = entity(self.get_pos_from_grid(g_coord))
                     self.add_entity(newe)
-
+    
 class Collision():
     def __init__(self, entity: Entity, pos: Vec2):
         self.entity = entity

@@ -2,7 +2,7 @@ import pygame
 import blogger
 from renderlib import Screen, Layer, Entity, Collision, EntityFloor
 import gamelib
-from gamelib import PlayerInfo, LogicComponent, Logic
+from gamelib import PlayerInfo, LogicComponent, Logic, Level
 import veclib
 import random
 from veclib import Vec2
@@ -235,14 +235,18 @@ class GameFloor(EntityFloor):
         self.player: Entity = None;
         self.dim: Vec2 = Vec2(384,384)
         self._listen("start", self.start)
+    # load a level
+    def load_level(self, level:Level):
+        self.reset()
+        # move the player to the spawnpoint of the level
+        self.player.relative_position = self.get_pos_from_grid(level.player_spawn_grid)
+        # place entities based on their emaps, and the entity class attached to the key in the legend
+        for key in level.emaps.keys():
+            self.load_entities(level.legend[key], level.emaps[key])
     # initialize a sample level with 4 entities at random grid positions
     def start(self, stage=0):
-        # generate walls
-        grid = gamelib.parse_efile("maps/wall1.txt")
-        self.load_entities(Wall, grid)
-        for i in range(0,4):
-            self.add_entity(Enemy(self.get_pos_from_grid(veclib.randvec2(Vec2(0,0), self.dim/self.gdim))))
-        
+        self.load_level(Level("maps/l1.txt", {'1':Wall, '2':Enemy}))
+
 # initialize game render system
 # level 1        
 game = Game()
