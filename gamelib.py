@@ -1,5 +1,6 @@
 # from renderlib import Listener
 import blogger
+blogger.init("log/")
 from veclib import Vec2
 class LogicComponent:
     def __init__(self, name:str):
@@ -35,10 +36,11 @@ def parse_efile(path):
         row = []
         # every cell in a row is the x value
         for cell in l:
-            try:
-                row.append(int(cell))
-            except:
-                blogger.blog().error("Non-int found in file.")
+            row.append(cell)
+            # try:
+            #     row.append(int(cell))
+            # except:
+            #     blogger.blog().error("Non-int found in file.")
         grid.append(row)
     f.close()    
     return grid
@@ -49,10 +51,44 @@ class EntityMap():
         self.entity = entity
         self.map = map
 # defines a level in the game (walls, entities, player spawn point)
+# all positions in level are grid relative to the raw map
 class Level():
-    def __init__(self):
-        self.components = [] 
-        self.player_spawn = Vec2(0,0)
-    def add_component(self, map:EntityMap):
-        if not map in self.components:
-            self.components.append(map)
+    # assuming always that player is 'p'
+    def __init__(self, map_path:str="map/map.txt", legend={}):
+        # contains any characters
+        self.raw_map = parse_efile(map_path)
+        self.grid_dimensions = Vec2(len(self.raw_map[0]), len(self.raw_map))
+        self.player_spawn_grid: Vec2 = self.find_player()
+        self.legend = legend
+        # all maps in here contain only 1s and 0s (ints)
+        self.emaps = {}
+        self.load_emaps()
+    # find the player 'p' in the map. required.
+    def find_player(self):
+        for row_i in range(len(self.raw_map)):
+            row = self.raw_map[row_i]
+            for cell_i in range(len(row)):
+                cellval = row[cell_i]
+                grid_pos = Vec2(cell_i, row_i)
+                if(cellval == "p"):
+                    # found the player in the map
+                    return grid_pos
+        return blogger.blog().error("[find_player] Player not found in file. required.")
+    # generate emap (1s and 0s) from searching for 1 key in the rawmap. returns a full map regardless.
+    def find_key(self, key):
+        map = []
+        for row_i in range(len(self.raw_map)):
+            e_row = []
+            row = self.raw_map[row_i]
+            for cell_i in range(len(row)):
+                cellval = row[cell_i]
+                if(cellval == key):
+                    e_row.append(1)
+                else:
+                    e_row.append(0)
+            map.append(e_row)
+        return map
+    # generate emaps (0,1) from rawmap using legend
+    def load_emaps(self):
+        for key in self.legend.keys():
+            self.emaps[key] = self.find_key(key)
