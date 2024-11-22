@@ -73,7 +73,6 @@ class Renderer(Listener):
             self.listeners["render"]()
     # pre render; meant for working within the game loop, not rendering to screen
     def _pre_render(self):
-        pass
         if(self.listeners["pre_render"] != None):
             self.listeners["pre_render"]()
     def _start(self):
@@ -122,12 +121,12 @@ class Screen(Renderer):
         # super(newscreen, self)._listen("render", self.render)
     # methods overriden from Renderer class, MUST MATCH SIGNATURE
     def _event(self, e):
-        if(self.listeners["event"] == None):
-            # default behaviour if no event function is registered.
-            for l in self.layers:
-                if l.active==True:
-                    l._event(e)
-        else:
+        # send all events to layers
+        for l in self.layers:
+            if l.active==True:
+                l._event(e)
+        if(self.listeners["event"] != None):
+            # trigger event if it exists
             self.listeners["event"](e)
     def _pre_render(self):
         # run pre render on inside layers automatically, allow for flexibility regardless whether prerender used on Screen class
@@ -139,16 +138,14 @@ class Screen(Renderer):
     def _render(self):
         # render the background color as a backup, in order to prevent unexpected behaviour
         self.surface.fill((0,0,0))
-        if(self.listeners["render"] == None):
         # if no registered listener is present, default behaviour is to render all active layers
-            l: Layer
-            for l in self.layers:
-                if l.active == True:
-                    # ensure that interval listeners can run at the screen level
-                    l._tick()
-                    l._render()
-                    
-        else:
+        l: Layer
+        for l in self.layers:
+            if l.active == True:
+                # ensure that interval listeners can run at the screen level
+                l._tick()
+                l._render()
+        if(self.listeners["render"] != None):
             self.listeners["render"]()
         return self.surface
 class Entity(Layer):
@@ -162,18 +159,23 @@ class Entity(Layer):
         self.solid = True
         # append collision to allowed events for entity
         self.listeners.update({"collision": None})
-        
+        self.tags = []
         # relative to entity floor
         self.relative_position = Vec2(0,0)
         self.dim = Vec2(32,32)
         self.facing = Vec2(0,0) # direction entity is facing
         # entity floor which this entity belongs to. Will only be given this through registration
         self.floor = None
+    def has_tag(self, tag):
+        if tag in self.tags:
+            return True
+        return False
+    def add_tag(self, tag):
+        if not tag in self.tags:
+            self.tags.append(tag)
+        blogger.blog().warn("Can't add a tag twice.")
     def _collision(self, c):
-        if(self.listeners["collision"] == None):
-            # default behaviour if no event function is registered.
-            pass
-        else:
+        if(self.listeners["collision"] != None):
             self.listeners["collision"](c)   
     def destroy(self):
         self._del = True
@@ -190,23 +192,23 @@ class EntityFloor(Layer):
         self.dim: Vec2 = Vec2(384,384)
     # layer does not have built in functionality for handling layers within (layer 3.1), so it must be added like it is implemented in screens (layer 2)
     def _render(self):
-        if(self.listeners["render"] == None):
-        # if no registered listener is present, default behaviour is to render all active layers
-            e: Entity
-            for e in self.entities:
-                if e.active == True:
-                    rel_pos: Vec2 = e.relative_position
-                    if(abs(rel_pos.x) > (self.dim.x) or abs(rel_pos.y) > (self.dim.y)) or e._del == True:
-                        # remove entities far away from the dimensions of the floor, or when they're queued to be deleted
-                        self.entities.remove(e)
-                    else:
-                        collision = self.calc_collision(e, e.relative_position)
-                        if(collision):
-                            e._collision(collision)
-                        e._render()
-                        # ensure that interval functions can run at this level 
-                        e._tick()
-        else:
+        # render entities and calculate collisions
+        e: Entity
+        for e in self.entities:
+            if e.active == True:
+                rel_pos: Vec2 = e.relative_position
+                if(abs(rel_pos.x) > (self.dim.x) or abs(rel_pos.y) > (self.dim.y)) or e._del == True:
+                    # remove entities far away from the dimensions of the floor, or when they're queued to be deleted
+                    self.entities.remove(e)
+                else:
+                    collision = self.calc_collision(e, e.relative_position)
+                    if(collision):
+                        e._collision(collision)
+                    e._render()
+                    # ensure that interval functions can run at this level 
+                    e._tick()
+        # run registered render function after these default actions, if it exists
+        if(self.listeners["render"] != None):
             self.listeners["render"]()
     def _event(self, event):
         if(self.listeners["event"] == None):
@@ -355,7 +357,17 @@ class EntityFloor(Layer):
                 if(cellval == 1):
                     newe: Entity = entity(self.get_pos_from_grid(g_coord))
                     self.add_entity(newe)
-    
+    # count entities that contain a tag
+    def count(self, tags=[]):
+        count = 0
+        e: Entity
+        for e in self.entities:
+            tagcount = 0
+            for t in tags:
+                if t in e.tags:
+                    tagcount+=1
+            if tagcount == len(tags):
+                count+=1
 class Collision():
     def __init__(self, entity: Entity, pos: Vec2):
         self.entity = entity
