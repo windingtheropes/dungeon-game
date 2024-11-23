@@ -143,6 +143,12 @@ class Enemy(Entity):
         self.dir:Vec2 = Vec2(0,0)
 
     def fire_projectile(self):
+        # cast a ray in the direction of the player, if there's a wall in between don't shoot; can't see through it :)
+        # entity_in_front = self.floor.raycast(self, self.dir)
+        # print(entity_in_front)
+        # if entity_in_front:
+        #     if entity_in_front != self.floor.player:
+        #         return
         # offsetdir is a direction with magnitude 1 (unit vector), but has been randomly modified with a slight offset to make the game less impossible :)
         offsetdir:Vec2 = (self.dir + veclib.randvec2(Vec2(0,0), Vec2(1,1))).unit()
         self.floor.add_entity(Projectile(self.relative_position, 12, offsetdir, self))
@@ -243,22 +249,27 @@ class GameFloor(EntityFloor):
         self.stage = 0
     def event(self, e):
         if e.type == pygame.KEYDOWN:
-            if e.key == pygame.K_r and pygame.K_LCTRL in pygame.key.get_pressed():
-                self.reset()
-        pass
+            # debug keys start with Ctrl
+            if pygame.key.get_pressed()[pygame.K_LCTRL] or pygame.key.get_pressed()[pygame.K_LCTRL]:
+                if e.key == pygame.K_r:
+                    self.reset()
+                if e.key == pygame.K_t:
+                    self.stage+=1
+                    self.start(self.stage)
     def render(self):
         # gameLogic.
-        if(self.count([Tag.enemy]) == 0):
-            self.stage+=1
-            self.start(self.stage)
-
+        # if(self.count([Tag.enemy]) == 0):
+        #     self.stage+=1
+        #     self.start(self.stage)
+        pass
     # initialize a sample level with 4 entities at random grid positions
     def start(self, stage=0):
         if(stage == 0):
             self.load_level(Level("maps/l1.txt", {'1':Wall, '2':Enemy}))
         elif(stage == 1):
             self.load_level(Level("maps/l2.txt", {'1':Wall, '2':Enemy}))
-            pass
+        elif(stage == 2):
+            self.load_level(Level("maps/l3.txt", {'1':Wall, '2':Enemy}))
 
 # initialize game render system
 # level 1        

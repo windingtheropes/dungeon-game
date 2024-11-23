@@ -7,8 +7,9 @@ import blogger
 import time
 import random
 import pygame
-from veclib import Vec2
+from veclib import Vec2, Ray
 from gamelib import Level
+from util import get_highest_of_arr, get_lowest_of_arr, arr_ascending, arr_descending
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
 class IntervalFunction:
     def __init__(self, fun, interval, rep):
@@ -355,23 +356,7 @@ class EntityFloor(Layer):
             if tagcount == len(tags):
                 count+=1
         return count
-    # cast a ray from the entity in the direction of dir
-    def raycast(self, entity:Entity, dir:Vec2, len=512):
-        len = int(len)
-        if(dir.x == 0 or dir.y == 0):
-            return None
-        # entity.relative_position = (x1,y1)
-        # dir = (d1x, d1y)
-        # vector parametric equations rearranged to solve for a
-        a_x = lambda x : (x-entity.relative_position.x)/dir.x
-        a_y = lambda y : (y-entity.relative_position.y)/dir.y
-    
-        e: Entity
-        for e in self.entities:
-            # if a values of both the x and y components of a point are equal, the point is on the ray.
-            if(a_x(e.relative_position.x) == a_y(e.relative_position.y)):
-                return e
-        return None
+
 class Collision():
     def __init__(self, entity: Entity, pos: Vec2):
         self.entity = entity

@@ -8,9 +8,15 @@ class Vec2():
     def __init__(self, x:float=0, y:float=0):
         self.x:float = float(x)
         self.y:float = float(y)
+    # dot product returns a scalar value
+    def dot(self, a ):
+        return (self.x * a.x) + (self.y * a.y)
     # return a readable array of x,y
     def arr(self):
         return [self.x, self.y]
+    # return a normal to the vector
+    def norm(self):
+        return Vec2(-self.y, self.x)
     # magnitude of vector; use is to be interpreted
     def mag(self):
         return math.sqrt(self.x**2 + self.y**2)
@@ -45,6 +51,17 @@ class Vec2():
     # return vector equivalent with whole numbers (ints)
     def whole(self):
         return Vec2(int(self.x), int(self.y))
+# ray (line) object. vector deffinition of a line. takes a point, which is on the ray, and a direction vector for the line.
+# can then calculate any point on the plane
+class Ray():
+    def __init__(self, point_on_ray: Vec2, direction: Vec2):
+        self.p1 = point_on_ray
+        self.dir = direction
+    
+        self.x_comp = lambda a: self.p1.x + (a*self.dir.x)
+        self.y_comp = lambda a: self.p1.y + (a*self.dir.y)
+    def get_point(self, a):
+        return Vec2(self.x_comp(a), self.y_comp(a))
 # v = Vec2(25,5)
 # print((Vec2(2,2)+(v*2)).arr)
 # random vector functionality
@@ -55,4 +72,7 @@ def randvec2(low: Vec2, high: Vec2):
         raise Exception("High must be a valid Vec2")
     low = low.whole()
     high = high.whole()
-    return Vec2(random.randint(low.x, high.x), random.randint(low.y,high.y))
+    return Vec2(random.randint(int(low.x), int(high.x)), random.randint(int(low.y),int(high.y)))
+
+ray = Ray(Vec2(2,5), Vec2(5,3))
+print(ray.get_point(3).arr())
