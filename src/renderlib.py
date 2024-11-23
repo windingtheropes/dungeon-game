@@ -165,7 +165,7 @@ class Entity(Layer):
         self.dim = Vec2(32,32)
         self.facing = Vec2(0,0) # direction entity is facing
         # entity floor which this entity belongs to. Will only be given this through registration
-        self.floor = None
+        self.floor:EntityFloor = None
     def has_tag(self, tag):
         if tag in self.tags:
             return True
@@ -242,12 +242,6 @@ class EntityFloor(Layer):
         if entity in self.entities:
            return blogger.blog().warn(f"{self.__class__.__name__}) Entity already registered.")
         else:
-            # **TODO** maybe remove this later in favour of Level class
-            # # if not being forced, will **eventually** reject entities that are added at same pos of other collidable
-            # if(force == False):
-            #     if(self.calc_collision(entity, entity.relative_position) and entity.solid == True):
-            #         blogger.blog().warn("[add_entity] Trying to add an entity where there already is one.")
-            #         return
             # registers the layer to the screen by providing it with a surface to render to
             if(self.surface == None):
                 blogger.blog().error(f"{self.__class__.__name__}) No screen registered; trying to assign None screen to entity.")
@@ -265,43 +259,37 @@ class EntityFloor(Layer):
     # convert grid position [1,0] to relative position, [1*self.gdim,0]
     def get_pos_from_grid(self, grid_position:Vec2):
         return (grid_position * self.gdim)        
+    # calculate a collision for an entity
     def calc_collision(self, entity: Entity, relative_position: Vec2=None):
         ### TODO CHECK FOR FOR DIRECT NEXT-TO COLLISIONS INSTEAD OF INSIDE COLLISIONS
         target: Entity
         if entity.collidable == False:
             return None
-        for target in self.entities:
-            if target.collidable == False:
-                continue
-            # can't collide with self
-            if(target == entity):
-                continue
-
-            # shorthand
-            pos: Vec2
-            pos = relative_position
-
+        e_at_pos: Entity = self.entity_at_point(relative_position)
+        if(e_at_pos):
+            return Collision(e_at_pos, relative_position)
+        else:
+            return None
+    # is entity at point
+    def entity_at_point(self, point: Vec2=None):
+        entity: Entity
+        for entity in self.entities:
             # hitbox dimension calculations
-            t_pos = target.relative_position.abs()
+            t_pos = entity.relative_position.abs()
             t_min = Vec2(t_pos.x, t_pos.y)
-            t_max = Vec2(t_pos.x+target.dim.x-1, t_pos.y+target.dim.y-1)
-
-            #     if(pos.abs().x >= t_min.x) and (pos.abs().x <= t_max.x):
-            #         print("collision on x")
-            #     if(pos.abs().y >= t_min.y) and (pos.abs().y <= t_max.y):
-            #         print("collision on y")
+            t_max = Vec2(t_pos.x+entity.dim.x-1, t_pos.y+entity.dim.y-1)
             
             if(
                 # entity position is greater than or equal to the minimum x; to the right
                 # entity position is less than or equal to the maximum x
-                ((pos.x >= t_min.x) and (pos.x <= t_max.x))
+                ((point.x >= t_min.x) and (point.x <= t_max.x))
                 
                 and 
                 # entity position is greater than or equal to the minimum y; down is positive (thanks pygame :) )
                 # entity position is less than or equal to the maximum y
-                ((pos.y >= t_min.y) and (pos.y <= t_max.y))
+                ((point.y >= t_min.y) and (point.y <= t_max.y))
               ):
-                return Collision(target, pos)
+                return entity
             else:
                # proceed to check next entity in array
                continue
@@ -333,9 +321,7 @@ class EntityFloor(Layer):
             self.load_entities(level.legend[key], level.emaps[key])
     def reset(self):
         # don't remove the player
-        plr = self.player
-        self.entities = []
-        self.entities.append(plr)
+        self.entities = [self.player]
     # add entities in bulk to the grid, based on a map
     # takes an entity Class, not an initialized entity, so that it can create multiple.
     def load_entities(self, entity, map=[]):
@@ -369,6 +355,23 @@ class EntityFloor(Layer):
             if tagcount == len(tags):
                 count+=1
         return count
+    # cast a ray from the entity in the direction of dir
+    def raycast(self, entity:Entity, dir:Vec2, len=512):
+        len = int(len)
+        if(dir.x == 0 or dir.y == 0):
+            return None
+        # entity.relative_position = (x1,y1)
+        # dir = (d1x, d1y)
+        # vector parametric equations rearranged to solve for a
+        a_x = lambda x : (x-entity.relative_position.x)/dir.x
+        a_y = lambda y : (y-entity.relative_position.y)/dir.y
+    
+        e: Entity
+        for e in self.entities:
+            # if a values of both the x and y components of a point are equal, the point is on the ray.
+            if(a_x(e.relative_position.x) == a_y(e.relative_position.y)):
+                return e
+        return None
 class Collision():
     def __init__(self, entity: Entity, pos: Vec2):
         self.entity = entity
