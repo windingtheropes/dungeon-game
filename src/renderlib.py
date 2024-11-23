@@ -356,7 +356,16 @@ class EntityFloor(Layer):
             if tagcount == len(tags):
                 count+=1
         return count
-
+    def raycast(self, entity:Entity, direction:Vec2):
+        ray = Ray(entity.relative_position, direction)
+        for i in range(1,512):
+            point:Vec2 = ray.get_point((i/32))
+            eap = self.entity_at_point(point)
+            if(eap == entity):
+                continue
+            if(eap):
+                return eap
+        return None
 class Collision():
     def __init__(self, entity: Entity, pos: Vec2):
         self.entity = entity

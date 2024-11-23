@@ -62,6 +62,7 @@ class Ray():
         self.y_comp = lambda a: self.p1.y + (a*self.dir.y)
     def get_point(self, a):
         return Vec2(self.x_comp(a), self.y_comp(a))
+    
 # v = Vec2(25,5)
 # print((Vec2(2,2)+(v*2)).arr)
 # random vector functionality
@@ -73,6 +74,3 @@ def randvec2(low: Vec2, high: Vec2):
     low = low.whole()
     high = high.whole()
     return Vec2(random.randint(int(low.x), int(high.x)), random.randint(int(low.y),int(high.y)))
-
-ray = Ray(Vec2(2,5), Vec2(5,3))
-print(ray.get_point(3).arr())

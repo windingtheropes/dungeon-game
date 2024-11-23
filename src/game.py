@@ -132,23 +132,22 @@ class Enemy(Entity):
             self.relative_position = Vec2(32,128)
         self.dim = Vec2(32,32)
         self.health = 3
-        
-        # find the player every 2 seconds
-        self._listen_on_interval(2,self.find_player)
+        self.speed = 1
+        # find the player every 2 seconds, prop to speed
+        self._listen_on_interval((2)/self.speed,self.find_player)
         # fire bullets every 2.25 seconds
-        self._listen_on_interval(9/4,self.fire_projectile)
+        self._listen_on_interval((9/4)/self.speed,self.fire_projectile)
         # move based on player location, every 1/2 seconds
-        self._listen_on_interval(1/2,self.move)
+        self._listen_on_interval((1/2)/self.speed,self.move)
         self.target:Vec2 = Vec2(0,0)
         self.dir:Vec2 = Vec2(0,0)
 
     def fire_projectile(self):
         # cast a ray in the direction of the player, if there's a wall in between don't shoot; can't see through it :)
-        # entity_in_front = self.floor.raycast(self, self.dir)
-        # print(entity_in_front)
-        # if entity_in_front:
-        #     if entity_in_front != self.floor.player:
-        #         return
+        entity_in_front = self.floor.raycast(self, self.dir)
+        if entity_in_front:
+            if entity_in_front != self.floor.player:
+                return
         # offsetdir is a direction with magnitude 1 (unit vector), but has been randomly modified with a slight offset to make the game less impossible :)
         offsetdir:Vec2 = (self.dir + veclib.randvec2(Vec2(0,0), Vec2(1,1))).unit()
         self.floor.add_entity(Projectile(self.relative_position, 12, offsetdir, self))
