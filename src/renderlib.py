@@ -173,7 +173,8 @@ class Entity(Layer):
     def add_tag(self, tag):
         if not tag in self.tags:
             self.tags.append(tag)
-        blogger.blog().warn("Can't add a tag twice.")
+        else:
+            blogger.blog().warn("Can't add a tag twice.")
     def _collision(self, c):
         if(self.listeners["collision"] != None):
             self.listeners["collision"](c)   
@@ -211,12 +212,11 @@ class EntityFloor(Layer):
         if(self.listeners["render"] != None):
             self.listeners["render"]()
     def _event(self, event):
-        if(self.listeners["event"] == None):
-            # default behaviour if no event function is registered.
-            for entity in self.entities:
-                if entity.active==True:
-                    entity._event(event)
-        else:
+        # default behaviour if no event function is registered.
+        for entity in self.entities:
+            if entity.active==True:
+                entity._event(event)
+        if(self.listeners["event"] != None):
             self.listeners["event"](event)
     # must override start function to trigger start on entities, as Layer does not have implementation for layers within
     def _start(self, stage=0):
@@ -333,9 +333,9 @@ class EntityFloor(Layer):
             self.load_entities(level.legend[key], level.emaps[key])
     def reset(self):
         # don't remove the player
-        for e in self.entities:
-            if e != self.player:
-                self.entities.remove(e)
+        plr = self.player
+        self.entities = []
+        self.entities.append(plr)
     # add entities in bulk to the grid, based on a map
     # takes an entity Class, not an initialized entity, so that it can create multiple.
     def load_entities(self, entity, map=[]):
@@ -368,6 +368,7 @@ class EntityFloor(Layer):
                     tagcount+=1
             if tagcount == len(tags):
                 count+=1
+        return count
 class Collision():
     def __init__(self, entity: Entity, pos: Vec2):
         self.entity = entity

@@ -4,7 +4,7 @@
 import pygame
 import blogger
 from renderlib import Screen, Layer, Entity, Collision, EntityFloor
-from gamelib import PlayerInfo, LogicComponent, Logic, Level
+from gamelib import PlayerInfo, LogicComponent, Logic, Level, Tag
 import veclib
 import random
 from veclib import Vec2
@@ -125,6 +125,7 @@ class Enemy(Entity):
         Entity.__init__(self)
         self.collidable = True
         self.solid = True
+        self.add_tag(Tag.enemy)
         if(ipos):
             self.relative_position = ipos
         else:
@@ -237,9 +238,27 @@ class GameFloor(EntityFloor):
         self.player: Entity = None;
         self.dim: Vec2 = Vec2(384,384)
         self._listen("start", self.start)
+        self._listen("render", self.render)
+        self._listen("event", self.event)
+        self.stage = 0
+    def event(self, e):
+        if e.type == pygame.KEYDOWN:
+            if e.key == pygame.K_r and pygame.K_LCTRL in pygame.key.get_pressed():
+                self.reset()
+        pass
+    def render(self):
+        # gameLogic.
+        if(self.count([Tag.enemy]) == 0):
+            self.stage+=1
+            self.start(self.stage)
+
     # initialize a sample level with 4 entities at random grid positions
     def start(self, stage=0):
-        self.load_level(Level("maps/l1.txt", {'1':Wall, '2':Enemy}))
+        if(stage == 0):
+            self.load_level(Level("maps/l1.txt", {'1':Wall, '2':Enemy}))
+        elif(stage == 1):
+            self.load_level(Level("maps/l2.txt", {'1':Wall, '2':Enemy}))
+            pass
 
 # initialize game render system
 # level 1        

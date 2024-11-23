@@ -56,4 +56,3 @@ def randvec2(low: Vec2, high: Vec2):
     low = low.whole()
     high = high.whole()
     return Vec2(random.randint(low.x, high.x), random.randint(low.y,high.y))
-

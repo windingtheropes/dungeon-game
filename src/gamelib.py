@@ -2,6 +2,7 @@
 # 11/20/24
 # contains game specific classes and functions
 import blogger
+from enum import Enum
 blogger.init("log/")
 from veclib import Vec2
 class LogicComponent:
@@ -94,3 +95,6 @@ class Level():
     def load_emaps(self):
         for key in self.legend.keys():
             self.emaps[key] = self.find_key(key)
+
+class Tag(Enum):
+    enemy="enemy"
