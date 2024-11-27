@@ -8,7 +8,7 @@ import time
 import random
 import pygame
 from veclib import Vec2, Ray
-from gamelib import Level
+from levelslib import Level
 from util import get_highest_of_arr, get_lowest_of_arr, arr_ascending, arr_descending
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
 class IntervalFunction:
@@ -84,7 +84,8 @@ class Renderer(Listener):
 class Layer(Renderer):
     def __init__(self):
         Renderer.__init__(self)
-        self.surface:pygame.surface = None
+        self.paused = False
+        self.surface:pygame.Surface = None
     # override layer _start to add the stage parameter for on_game_start 
     def _start(self, stage=0):
         if(self.listeners["start"] != None):
@@ -149,6 +150,7 @@ class Screen(Renderer):
         if(self.listeners["render"] != None):
             self.listeners["render"]()
         return self.surface
+# entity extends layer, contains some extra functions such as collisions, health, colour, and dynamic rendering based on its parent, the entity floor
 class Entity(Layer):
     def __init__(self):
         Layer.__init__(self)
@@ -167,6 +169,9 @@ class Entity(Layer):
         self.facing = Vec2(0,0) # direction entity is facing
         # entity floor which this entity belongs to. Will only be given this through registration
         self.floor:EntityFloor = None
+        self.centred= False
+        self.colour = (255,255,255)
+    # tagging functions
     def has_tag(self, tag):
         if tag in self.tags:
             return True
@@ -176,11 +181,23 @@ class Entity(Layer):
             self.tags.append(tag)
         else:
             blogger.blog().warn("Can't add a tag twice.")
+    # root collision function, trigger the collision listener on an entity
     def _collision(self, c):
         if(self.listeners["collision"] != None):
             self.listeners["collision"](c)   
+    # tell the entity floor that this entity can be deleted
     def destroy(self):
         self._del = True
+    # return a destructurable array to pass into pygame.draw.rect, based on the relative position.
+    # macro for quicker and more consistent rendering
+    def rinfo(self):
+        gpos = self.floor.get_global_position(self.relative_position)
+        # if centred, will treat the relative position as the centre for rendering
+        if(self.centred == True):
+            return [self.colour, pygame.Rect(gpos.x+self.dim.x/2, gpos.y+self.dim.y/2, self.dim.x, self.dim.y)]
+        else:
+            return [self.colour, pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.y)]
+# entity template, used to make copies of a configured entity        
 
 # entity floor base class; contains active entities
 class EntityFloor(Layer):
@@ -203,6 +220,11 @@ class EntityFloor(Layer):
                     # remove entities far away from the dimensions of the floor, or when they're queued to be deleted
                     self.entities.remove(e)
                 else:
+                    # paused entityfloor, render objects to screen only
+                    if(self.paused == True):
+                        e._render()
+                        continue
+                    # full functionality for running game
                     collision = self.calc_collision(e, e.relative_position)
                     if(collision):
                         e._collision(collision)
@@ -213,10 +235,14 @@ class EntityFloor(Layer):
         if(self.listeners["render"] != None):
             self.listeners["render"]()
     def _event(self, event):
-        # default behaviour if no event function is registered.
+        # don't pass events when paused
+        if(self.paused == True):
+            return
+        # trigger events on all child entities
         for entity in self.entities:
             if entity.active==True:
                 entity._event(event)
+        # trigger listener as well, if it exists
         if(self.listeners["event"] != None):
             self.listeners["event"](event)
     # must override start function to trigger start on entities, as Layer does not have implementation for layers within
@@ -317,7 +343,7 @@ class EntityFloor(Layer):
         self.reset()
         # move the player to the spawnpoint of the level
         self.player.relative_position = self.get_pos_from_grid(level.player_spawn_grid)
-        # place entities based on their emaps, and the entity class attached to the key in the legend
+        # place entities based on their emaps, and the entity instantiator attached to the key in the legend
         for key in level.emaps.keys():
             self.load_entities(level.legend[key], level.emaps[key])
     def reset(self):
@@ -325,7 +351,7 @@ class EntityFloor(Layer):
         self.entities = [self.player]
     # add entities in bulk to the grid, based on a map
     # takes an entity Class, not an initialized entity, so that it can create multiple.
-    def load_entities(self, entity, map=[]):
+    def load_entities(self, instantiator, map=[]):
         # max x and y in grid terms
         self.max_grid: Vec2 = self.get_grid_position(self.dim)
         # make sure dimensions match floor size
@@ -342,7 +368,10 @@ class EntityFloor(Layer):
                 cellval = map[row][cell]
                 # if the cell = 1, then add an entity
                 if(cellval == 1):
-                    newe: Entity = entity(self.get_pos_from_grid(g_coord))
+                    # instantiator is a function which returns a new, preconfigured instnace of an entity. set the position afterwards.
+                    # instantiator could just be a class, or a template. either one returns an Entity
+                    newe: Entity = instantiator()
+                    newe.relative_position = self.get_pos_from_grid(g_coord) 
                     self.add_entity(newe)
     # count entities that contain a tag
     def count(self, tags=[]):
@@ -356,10 +385,14 @@ class EntityFloor(Layer):
             if tagcount == len(tags):
                 count+=1
         return count
-    def raycast(self, entity:Entity, direction:Vec2):
+    # dirty raycast (uses loop), 
+    def raycast(self, entity:Entity, direction:Vec2, len=512):
+        # generate a ray (vector line) based on the parameters
         ray = Ray(entity.relative_position, direction)
-        for i in range(1,512):
-            point:Vec2 = ray.get_point((i/32))
+        # knowing magnitude of direction will be 1, for each increase of a value by 1, the length of ray will increase by 1
+        # check for every 0.1 pixels
+        for i in range(1,len*10):
+            point:Vec2 = ray.get_point(i/10)
             eap = self.entity_at_point(point)
             if(eap == entity):
                 continue
