@@ -4,7 +4,8 @@
 import pygame
 import blogger
 from renderlib import Screen, Layer, Entity, Collision, EntityFloor
-from gamelib import PlayerInfo, LogicComponent, Logic, Level, Tag
+from gamelib import PlayerInfo, LogicComponent, Logic, Tag
+from levelslib import Level, parse_efile
 import veclib
 import random
 from veclib import Vec2
@@ -13,6 +14,9 @@ blogger.init("log/log")
 blog = blogger.blog()
 
 pygame.init()
+pygame.font.init()
+tiny5 = pygame.font.Font('fonts/tiny5.ttf', 30)
+
 clock = pygame.time.Clock()
 game_screen = pygame.display.set_mode([512,512])
 
@@ -75,6 +79,7 @@ class Hotbar(Layer):
         super(Hotbar, self)._listen("render", self.render)
         self.dim = Vec2(512,64)
         self.pos = Vec2(0,448)
+
     def render(self, s:pygame.Surface):
         bd = pygame.Surface(self.dim.arr())
         bd.fill((0,0,0))
@@ -90,8 +95,8 @@ class Hotbar(Layer):
 class MainScreen(Screen):
     def __init__(self):
         Screen.__init__(self, pygame.Surface((512,512)))
-    #     super(newscreen, self)._listen_on_interval(2,self.hi)
-    #     # super(newscreen, self)._listen("render", self.render)
+        # self._listen("event", self.event)
+
 # Entity floor
 class Player(Entity):
     def __init__(self):
@@ -121,32 +126,34 @@ class Player(Entity):
         gpos: Vec2 = self.floor.get_global_position(self.relative_position)
         pygame.draw.rect(self.surface, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
 class Enemy(Entity):
-    def __init__(self, ipos:Vec2=None):
+    def __init__(self, ipos:Vec2=Vec2(0,0), colour=(255,0,0), health=3, speed=1):
         Entity.__init__(self)
         self.collidable = True
         self.solid = True
         self.add_tag(Tag.enemy)
-        if(ipos):
-            self.relative_position = ipos
-        else:
-            self.relative_position = Vec2(32,128)
+        self.relative_position = ipos
         self.dim = Vec2(32,32)
-        self.health = 3
-        self.speed = 1
+        self.health = health
+        self.speed = speed
+        self.colour = colour
+        
+        self.target:Vec2 = Vec2(0,0)
+        self.dir:Vec2 = Vec2(0,0)
+        # elim any errors by not having initial idea of where player is
+        # self.find_player()
         # find the player every 2 seconds, prop to speed
         self._listen_on_interval((2)/self.speed,self.find_player)
         # fire bullets every 2.25 seconds
         self._listen_on_interval((9/4)/self.speed,self.fire_projectile)
         # move based on player location, every 1/2 seconds
         self._listen_on_interval((1/2)/self.speed,self.move)
-        self.target:Vec2 = Vec2(0,0)
-        self.dir:Vec2 = Vec2(0,0)
+        
 
     def fire_projectile(self):
         # cast a ray in the direction of the player, if there's a wall in between don't shoot; can't see through it :)
         entity_in_front = self.floor.raycast(self, self.dir)
         if entity_in_front:
-            if entity_in_front != self.floor.player:
+            if Tag.barrier in entity_in_front.tags:
                 return
         # offsetdir is a direction with magnitude 1 (unit vector), but has been randomly modified with a slight offset to make the game less impossible :)
         offsetdir:Vec2 = (self.dir + veclib.randvec2(Vec2(0,0), Vec2(1,1))).unit()
@@ -182,8 +189,9 @@ class Enemy(Entity):
             self.destroy()
         # if(self.floor.is_legal_move(self, self.facing)):
         #     self.relative_position = self.relative_position + self.facing
-        gpos: Vec2 = self.floor.get_global_position(self.relative_position)
-        pygame.draw.rect(self.surface, (255,0,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
+        # use macro to render (takes colour and gens pos automatically)
+        pygame.draw.rect(self.surface, *self.rinfo())
+        
 class Wall(Entity):
     def __init__(self, ipos:Vec2=Vec2(0,0), colour=(25,25,75)):
         Entity.__init__(self)
@@ -193,6 +201,7 @@ class Wall(Entity):
         self.relative_position = ipos
         # must be gdim of entity floor
         self.dim = Vec2(32,32)
+        self.add_tag(Tag.barrier)
     
     def _render(self): 
         gpos = self.floor.get_global_position(self.relative_position)
@@ -222,7 +231,7 @@ class Projectile(Entity):
         if(isinstance(c.entity, Player)):
             # access the game logic, and player data, to update health safely
             player: PlayerInfo = gameLogic.get_component("PlayerInfo")
-            player.health -= self.damage
+            player.inc_health(-self.damage)
             self.destroy()
         # bullets can't pass through solid objects
         if(c.entity.solid == True):
@@ -234,6 +243,30 @@ class Projectile(Entity):
         self.relative_position = prop_pos
         gpos = self.floor.get_global_position(self.relative_position)
         pygame.draw.rect(self.surface, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.y))
+
+#powerupp test class
+class Powerup(Entity):
+    def __init__(self, ipos = Vec2(0,0), val=1):
+        Entity.__init__(self)
+        self.dim = Vec2(16,16)
+        self.colour = (10,75,45)
+        self.relative_position: Vec2 = ipos
+        self.solid = False
+        self.val = 1
+        self.collidable = True
+        self.centred= True
+    def _collision(self, c: Collision):
+        # give the player more health
+        if(isinstance(c.entity, Player)):
+            # access the game logic, and player data, to update health safely
+            player: PlayerInfo = gameLogic.get_component("PlayerInfo")
+            player.inc_health(self.val)
+            self.destroy()
+    # render in one place.    
+    def _render(self):
+        # destructure the rinfo macro, gives quick rect and colour info for pygame draw rect
+        pygame.draw.rect(self.surface, *self.rinfo())
+
 # entity floor for game; contains entities and functionality
 class GameFloor(EntityFloor):
     def __init__(self):
@@ -256,21 +289,21 @@ class GameFloor(EntityFloor):
                     self.stage+=1
                     self.start(self.stage)
     def render(self):
-        # gameLogic.
-        # if(self.count([Tag.enemy]) == 0):
-        #     self.stage+=1
-        #     self.start(self.stage)
-        pass
+        stage_text = tiny5.render(str(self.stage), False, (255,255,255))
+        self.surface.blit(stage_text, self.get_global_position(Vec2(8,0)).arr())
+        if(self.count([Tag.enemy]) == 0):
+            self.stage+=1
+            self.start(self.stage)
     # initialize a sample level with 4 entities at random grid positions
     def start(self, stage=0):
         if(stage == 0):
-            self.load_level(Level("maps/l1.txt", {'1':Wall, '2':Enemy}))
+            self.load_level(Level(parse_efile("maps/l1.txt"), {'1':Wall, '2':Enemy, '3':Powerup, '4':(lambda: (Enemy(colour=(25,0,0), speed=3, health=2)))}))
         elif(stage == 1):
             self.load_level(Level("maps/l2.txt", {'1':Wall, '2':Enemy}))
         elif(stage == 2):
             self.load_level(Level("maps/l3.txt", {'1':Wall, '2':Enemy}))
 
-# initialize game render system
+# initialize game render system (level1,2,3+)
 # level 1        
 game = Game()
 # level 2
