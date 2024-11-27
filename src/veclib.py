@@ -56,7 +56,10 @@ class Vec2():
 class Ray():
     def __init__(self, point_on_ray: Vec2, direction: Vec2):
         self.p1 = point_on_ray
-        self.dir = direction
+        if direction.mag() == 0:
+            return blogger.blog().error("[veclib] Can't make cast a ray with direction 0,0")
+        # make a unit vector of the direction, so calculations are proportionally accurate ('a' values)
+        self.dir = direction.unit()
     
         self.x_comp = lambda a: self.p1.x + (a*self.dir.x)
         self.y_comp = lambda a: self.p1.y + (a*self.dir.y)
