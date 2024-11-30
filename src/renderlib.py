@@ -9,7 +9,7 @@ import random
 import pygame
 from veclib import Vec2, Ray
 from levelslib import Level
-from util import get_highest_of_arr, get_lowest_of_arr, arr_ascending, arr_descending
+# from util import get_highest_of_arr, get_lowest_of_arr, arr_ascending, arr_descending
 from collections import deque
 
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
@@ -20,13 +20,13 @@ class IntervalFunction:
         self.last = 0
         self.repeats = rep
         self.runs = 0
-class Listener():
+class Listener(): 
     def __init__(self):
         # listeners must be initialized as None in order to be considered valid
         self.listeners = {}
         self.interval_listeners = deque()
     # register a function to the listeners table
-    def _listen(self, eventName, fun):
+    def _listen(self, eventName, fun): 
         allowed_events = self.listeners.keys()
         if eventName in allowed_events:
             if fun != None and type(fun) == types.MethodType:
@@ -297,6 +297,7 @@ class EntityFloor(Layer):
         e_at_pos: Entity = self.entity_at_point(relative_position)
         if(e_at_pos):
             return Collision(e_at_pos, relative_position)
+
         else:
             return None
     # is entity at point
