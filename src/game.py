@@ -299,9 +299,9 @@ class GameFloor(EntityFloor):
         if(stage == 0):
             self.load_level(Level(parse_efile("maps/l1.txt"), {'1':Wall, '2':Enemy, '3':Powerup, '4':(lambda: (Enemy(colour=(25,0,0), speed=3, health=2)))}))
         elif(stage == 1):
-            self.load_level(Level("maps/l2.txt", {'1':Wall, '2':Enemy}))
+            self.load_level(Level(parse_efile("maps/l2.txt"), {'1':Wall, '2':Enemy}))
         elif(stage == 2):
-            self.load_level(Level("maps/l3.txt", {'1':Wall, '2':Enemy}))
+            self.load_level(Level(parse_efile("maps/l3.txt"), {'1':Wall, '2':Enemy}))
 
 # initialize game render system (level1,2,3+)
 # level 1        

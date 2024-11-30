@@ -10,6 +10,8 @@ import pygame
 from veclib import Vec2, Ray
 from levelslib import Level
 from util import get_highest_of_arr, get_lowest_of_arr, arr_ascending, arr_descending
+from collections import deque
+
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
 class IntervalFunction:
     def __init__(self, fun, interval, rep):
@@ -22,7 +24,7 @@ class Listener():
     def __init__(self):
         # listeners must be initialized as None in order to be considered valid
         self.listeners = {}
-        self.interval_listeners = []
+        self.interval_listeners = deque()
     # register a function to the listeners table
     def _listen(self, eventName, fun):
         allowed_events = self.listeners.keys()
@@ -102,7 +104,7 @@ class Layer(Renderer):
 class Screen(Renderer):
     def __init__(self, surface):
         Renderer.__init__(self)
-        self.layers = []
+        self.layers = deque()
         self.surface:pygame.surface = surface;
     # run start function of all layers within no matter what.
     def _start(self):
@@ -203,7 +205,7 @@ class Entity(Layer):
 class EntityFloor(Layer):
     def __init__(self):
         Layer.__init__(self)
-        self.entities = []
+        self.entities = deque()
         self.pos: Vec2 = Vec2(64,64)
         # grid dimensions, as a reference unit for certain calculations
         self.gdim = 32
