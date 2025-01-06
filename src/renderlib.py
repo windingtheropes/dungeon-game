@@ -226,6 +226,7 @@ class EntityFloor(Layer):
         Layer.__init__(self)
         self.entities = deque()
         self.pos: Vec2 = Vec2(64,64)
+        self.background_colour = (20,20,40)
         # grid dimensions, as a reference unit for certain calculations
         self.gdim = 32
         self.player: Entity = None;
@@ -239,7 +240,7 @@ class EntityFloor(Layer):
         
         # backdrop
         bd = pygame.Surface(self.dim.arr())
-        bd.fill((20,20,40))
+        bd.fill(self.background_colour)
         self.surface.blit(bd, self.pos.arr())
 
         # render entities and calculate collisions
