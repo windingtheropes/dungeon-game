@@ -50,8 +50,6 @@ class Game():
             # render the active screen, by rendering its surface to the main screen
             self.active_screen._pre_render()
             game_screen.blit(self.active_screen._render(), (0,0))
-            # allow tick events
-            self.active_screen._tick()
             # refresh the screen 1/24 of a second for 24fps
             pygame.display.update()
             clock.tick(frame_rate)
@@ -95,7 +93,22 @@ class Hotbar(Layer):
 class MainScreen(Screen):
     def __init__(self):
         Screen.__init__(self, pygame.Surface((512,512)))
-        # self._listen("event", self.event)
+        self._listen("event", self.event)
+        self._listen("start", self.start)
+    def start(self):
+        gamefloor = GameFloor()
+        self.add_layer(Backdrop())
+        self.add_layer(gamefloor)
+        self.add_layer(Hotbar())
+        gamefloor.add_player(Player())
+    def reset(self):
+        self._clear()
+        self.start()
+    def event(self, e):
+        if(e.type == pygame.KEYDOWN):
+            if e.key == pygame.K_ESCAPE:
+                self.render_screen = not self.render_screen
+                print(self.render_screen)
 
 # Entity floor
 class Player(Entity):
@@ -311,11 +324,7 @@ mainscreen = MainScreen()
 mainscreen.active = True
 game.addScreen(mainscreen)
 # level 3+
-gamefloor = GameFloor()
-mainscreen.add_layer(Backdrop())
-mainscreen.add_layer(gamefloor)
-mainscreen.add_layer(Hotbar())
-gamefloor.add_player(Player())
+
 
 # start the game
 game.start()

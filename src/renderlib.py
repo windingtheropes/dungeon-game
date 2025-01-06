@@ -43,6 +43,12 @@ class Listener():
             self.interval_listeners.append(IntervalFunction(fun, interval*1000, rep))
         else:
             blogger.blog.warn(f"{self.__class__.__name__}) Function passed for interval listener is not a function.")
+    # reset all interval listeners to now, so they will wait for their specified interval to run. useful for new game stages.
+    def reset_interval_listeners(self): 
+        for int_fun in self.interval_listeners:
+            now = pygame.time.get_ticks()
+            int_fun: IntervalFunction
+            int_fun.last == now
     def _tick(self):
         for int_fun in self.interval_listeners:
             now = pygame.time.get_ticks()
@@ -104,8 +110,12 @@ class Layer(Renderer):
 class Screen(Renderer):
     def __init__(self, surface):
         Renderer.__init__(self)
+        self.render_screen = True
         self.layers = deque()
         self.surface:pygame.surface = surface;
+    # clear the screen
+    def _clear(self):
+        self.layers = deque()
     # run start function of all layers within no matter what.
     def _start(self):
         l: Layer
@@ -125,14 +135,19 @@ class Screen(Renderer):
         # super(newscreen, self)._listen("render", self.render)
     # methods overriden from Renderer class, MUST MATCH SIGNATURE
     def _event(self, e):
+        # prevent lockout by running screen events above layer events
+        if(self.listeners["event"] != None):
+            # trigger event if it exists
+            self.listeners["event"](e)
+        if(self.render_screen == False):
+            return
         # send all events to layers
         for l in self.layers:
             if l.active==True:
                 l._event(e)
-        if(self.listeners["event"] != None):
-            # trigger event if it exists
-            self.listeners["event"](e)
     def _pre_render(self):
+        if self.render_screen == False:
+            return
         # run pre render on inside layers automatically, allow for flexibility regardless whether prerender used on Screen class
         for l in self.layers:
             if l.active==True:
@@ -140,13 +155,17 @@ class Screen(Renderer):
         if(self.listeners["pre_render"] != None):
             self.listeners["pre_render"]()
     def _render(self):
+        if(self.render_screen == False):
+            return self.surface
+        # ensure that tick events can run on the screen
+        self._tick()
         # render the background color as a backup, in order to prevent unexpected behaviour
-        self.surface.fill((0,0,0))
+        # self.surface.fill((0,0,0))
         # if no registered listener is present, default behaviour is to render all active layers
         l: Layer
         for l in self.layers:
             if l.active == True:
-                # ensure that interval listeners can run at the screen level
+                # ensure that interval listeners can run on layers
                 l._tick()
                 l._render()
         if(self.listeners["render"] != None):
@@ -235,7 +254,7 @@ class EntityFloor(Layer):
                     e._tick()
         # run registered render function after these default actions, if it exists
         if(self.listeners["render"] != None):
-            self.listeners["render"]()
+            self.listeners["render"]()        
     def _event(self, event):
         # don't pass events when paused
         if(self.paused == True):
