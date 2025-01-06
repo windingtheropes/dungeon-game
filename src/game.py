@@ -59,22 +59,11 @@ class Game():
             return
         else:
             self.screens.append(screen)
-
-class Backdrop(Layer):
+# health bad at bottom of screen
+class DataBar(Layer):
     def __init__(self):
         Layer.__init__(self)
-        super(Backdrop, self)._listen("render", self.render)
-        self.dim = Vec2(384,384)
-        self.pos = Vec2(64,64)
-    def render(self, s:pygame.Surface):
-        bd = pygame.Surface(self.dim.arr())
-        bd.fill((20,20,40))
-        s.blit(bd, self.pos.arr())
-# hotbar at bottom of screen
-class Hotbar(Layer):
-    def __init__(self):
-        Layer.__init__(self)
-        super(Hotbar, self)._listen("render", self.render)
+        super(DataBar, self)._listen("render", self.render)
         self.dim = Vec2(512,64)
         self.pos = Vec2(0,448)
 
@@ -95,20 +84,19 @@ class MainScreen(Screen):
         Screen.__init__(self, pygame.Surface((512,512)))
         self._listen("event", self.event)
         self._listen("start", self.start)
+        self.gamefloor: GameFloor
     def start(self):
-        gamefloor = GameFloor()
-        self.add_layer(Backdrop())
-        self.add_layer(gamefloor)
-        self.add_layer(Hotbar())
-        gamefloor.add_player(Player())
+        self.gamefloor = GameFloor()
+        self.add_layer(self.gamefloor)
+        self.add_layer(DataBar())
+        self.gamefloor.add_player(Player())
     def reset(self):
         self._clear()
         self.start()
     def event(self, e):
         if(e.type == pygame.KEYDOWN):
             if e.key == pygame.K_ESCAPE:
-                self.render_screen = not self.render_screen
-                print(self.render_screen)
+                self.gamefloor.pause_unpause()
 
 # Entity floor
 class Player(Entity):

@@ -230,8 +230,18 @@ class EntityFloor(Layer):
         self.gdim = 32
         self.player: Entity = None;
         self.dim: Vec2 = Vec2(384,384)
+    def pause_unpause(self):
+        self.paused = not self.paused
     # layer does not have built in functionality for handling layers within (layer 3.1), so it must be added like it is implemented in screens (layer 2)
     def _render(self):
+        if self.paused == True:
+            return
+        
+        # backdrop
+        bd = pygame.Surface(self.dim.arr())
+        bd.fill((20,20,40))
+        self.surface.blit(bd, self.pos.arr())
+
         # render entities and calculate collisions
         e: Entity
         for e in self.entities:
@@ -241,10 +251,6 @@ class EntityFloor(Layer):
                     # remove entities far away from the dimensions of the floor, or when they're queued to be deleted
                     self.entities.remove(e)
                 else:
-                    # paused entityfloor, render objects to screen only
-                    if(self.paused == True):
-                        e._render()
-                        continue
                     # full functionality for running game
                     collision = self.calc_collision(e, e.relative_position)
                     if(collision):
