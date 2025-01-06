@@ -1,10 +1,12 @@
 from veclib import Vec2
 import blogger
+
 # parse an entity grid file into an array
 def parse_efile(path):
     f = open(path, "r")
     grid = []
     # every line is a row (y value)
+    i = 0
     for l in f:
         l = l.strip()
         row = []
@@ -29,12 +31,13 @@ class EntityMap():
 class Level():
     # assuming always that player is 'p'
     # takes an already parsed grid; allows for more flexibility
-    def __init__(self, raw_map=[], legend={}):
+    def __init__(self, raw_map=[], legend={}, colours={}):
         # contains any characters
         self.raw_map = raw_map
         self.grid_dimensions = Vec2(len(self.raw_map[0]), len(self.raw_map))
         self.player_spawn_grid: Vec2 = self.find_player()
         self.legend = legend
+        self.colours = colours
         # all maps in here contain only 1s and 0s (ints)
         self.emaps = {}
         self.load_emaps()
