@@ -14,22 +14,22 @@ from collections import deque
 
 # generic renderer; layer 2 or layer 3; includes listener registration, render and event functions.
 class IntervalFunction:
-    def __init__(self, fun, interval, rep):
+    def __init__(self, fun, interval, rep, now):
         self.fun = fun
         self.interval = interval
-        self.last = 0
+        self.last = now
         self.repeats = rep
         self.runs = 0
 class Listener(): 
     def __init__(self):
         # listeners must be initialized as None in order to be considered valid
         self.listeners = {"tick":None}
-        self.interval_listeners = deque()
+        self.interval_listeners = []
     # register a function to the listeners table
     def _listen(self, eventName, fun): 
         allowed_events = self.listeners.keys()
         if eventName in allowed_events:
-            if fun != None and type(fun) == types.MethodType:
+            if fun != None and type(fun) in [types.MethodType, types.FunctionType]:
                 self.listeners[eventName] = fun
             else:
                 blogger.blog.warn(f"{self.__class__.__name__}) Function passed for {eventName} listener is not a function.")
@@ -39,8 +39,8 @@ class Listener():
     def _listen_on_interval(self, interval, fun, rep=0):
         if not interval:
             return blogger.blog.error(f"{self.__class__.__name__}) No interval passed for interval listeners.")
-        if fun != None and type(fun) == types.MethodType:
-            self.interval_listeners.append(IntervalFunction(fun, interval*1000, rep))
+        if fun != None and type(fun) in [types.MethodType, types.FunctionType]:
+            self.interval_listeners.append(IntervalFunction(fun, interval*1000, rep, pygame.time.get_ticks()))
         else:
             blogger.blog.warn(f"{self.__class__.__name__}) Function passed for interval listener is not a function.")
     # reset all interval listeners to now, so they will wait for their specified interval to run. useful for new game stages.
