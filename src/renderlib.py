@@ -23,7 +23,7 @@ class IntervalFunction:
 class Listener(): 
     def __init__(self):
         # listeners must be initialized as None in order to be considered valid
-        self.listeners = {}
+        self.listeners = {"tick":None}
         self.interval_listeners = deque()
     # register a function to the listeners table
     def _listen(self, eventName, fun): 
@@ -62,17 +62,19 @@ class Listener():
                 int_fun.fun()
                 if(int_fun.repeats != 0):
                     int_fun.runs += 1
+        if(self.listeners["tick"] != None):
+            self.listeners["tick"]()
 class Renderer(Listener):
     def __init__(self):
         Listener.__init__(self)
         self.active = True
         self.id = str(int(time.time() * random.random() * random.random()))
-        self.listeners = {
+        self.listeners.update({
             "event": None,
             "pre_render": None,
             "render": None,
             "start": None
-        }
+        })
     # universal generic functions trigger registered listeners. this is the function that is run by the layer 1
     def _event(self, e):
         if(self.listeners["event"] != None):
@@ -228,6 +230,7 @@ class EntityFloor(Layer):
         self.pos: Vec2 = Vec2(64,64)
         self.background_colour = (20,20,40)
         # grid dimensions, as a reference unit for certain calculations
+        self.gameover = False
         self.gdim = 32
         self.player: Entity = None;
         self.dim: Vec2 = Vec2(384,384)
@@ -261,7 +264,7 @@ class EntityFloor(Layer):
                     e._tick()
         # run registered render function after these default actions, if it exists
         if(self.listeners["render"] != None):
-            self.listeners["render"]()        
+            self.listeners["render"]()                
     def _event(self, event):
         # don't pass events when paused
         if(self.paused == True):

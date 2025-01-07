@@ -279,6 +279,7 @@ class GameFloor(EntityFloor):
         self._listen("start", self.start)
         self._listen("render", self.render)
         self._listen("event", self.event)
+        self._listen("tick", self.tick)
         self.stage = 0
     def event(self, e):
         if e.type == pygame.KEYDOWN:
@@ -292,9 +293,11 @@ class GameFloor(EntityFloor):
     def render(self):
         stage_text = tiny5.render(str(self.stage), False, (255,255,255))
         self.surface.blit(stage_text, self.get_global_position(Vec2(8,0)).arr())
+    def tick(self):
         if(self.count([Tag.enemy]) == 0):
             self.stage+=1
             self.start(self.stage)
+        pass
     # initialize a sample level with 4 entities at random grid positions
     def start(self, stage=0):
         if(stage == 0):
