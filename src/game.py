@@ -4,8 +4,9 @@
 import pygame
 import blogger
 from renderlib import Screen, Layer, Entity, Collision, EntityFloor
-from gamelib import PlayerInfo, LogicComponent, Logic, Tag
-from levelslib import Level, parse_efile
+from gamelib import PlayerInfo, Number, Logic, Tag
+from levelslib import Level, parse_efile, parse_emap
+from levelgen import gen
 import veclib
 import random
 from veclib import Vec2
@@ -21,9 +22,10 @@ clock = pygame.time.Clock()
 game_screen = pygame.display.set_mode([512,512])
 
 frame_rate = 24
-gameLogic = Logic()
-gameLogic.add_component(PlayerInfo("PlayerInfo", 3))
-
+gDB = Logic()
+gDB.set(PlayerInfo("PlayerInfo", 3))
+gDB.set(Number("playerprot"))
+gDB.set(Number("stage"))
 # level 1
 class Game():
     def __init__(self):
@@ -66,33 +68,43 @@ class DataBar(Layer):
         super(DataBar, self)._listen("render", self.render)
         self.dim = Vec2(512,64)
         self.pos = Vec2(0,448)
-
+        self.full_colour = (255,0,0)
+        self.prot_colour = (10,60,175)
+        self.empty_colour = (50,0,0)
     def render(self, s:pygame.Surface):
         bd = pygame.Surface(self.dim.arr())
         bd.fill((0,0,0))
         s.blit(bd, self.pos.arr())
         # pull universal player data from the logic class, and use it to update health
-        player:PlayerInfo= gameLogic.get_component("PlayerInfo")
+        player:PlayerInfo= gDB.get("PlayerInfo")
         for i in range(0,player.max_health):
             if(player.health - i > 0):
-                pygame.draw.rect(self.surface, (255,0,0), pygame.Rect(64+i*32, 448+16,32, 32))
+                if(gDB.get("playerprot").value == 1):
+                    pygame.draw.rect(self.surface, self.prot_colour, pygame.Rect(64+i*32, 448+16,32, 32))
+                else:
+                    pygame.draw.rect(self.surface, self.full_colour, pygame.Rect(64+i*32, 448+16,32, 32))
             else:
-                pygame.draw.rect(self.surface, (50,0,0), pygame.Rect(64+i*32, 448+16,32, 32))
+                pygame.draw.rect(self.surface, self.empty_colour, pygame.Rect(64+i*32, 448+16,32, 32))
         
 class MainScreen(Screen):
     def __init__(self):
         Screen.__init__(self, pygame.Surface((512,512)))
         self._listen("event", self.event)
         self._listen("start", self.start)
+        self._listen("tick", self.tick)
         self.gamefloor: GameFloor
     def start(self):
         self.gamefloor = GameFloor()
         self.add_layer(self.gamefloor)
         self.add_layer(DataBar())
         self.gamefloor.add_player(Player())
+    def tick(self):
+        if(self.gamefloor.gameover == True):
+            self.reset()
     def reset(self):
         self._clear()
         self.start()
+        gDB.reset()
     def event(self, e):
         if(e.type == pygame.KEYDOWN):
             if e.key == pygame.K_ESCAPE:
@@ -105,6 +117,7 @@ class Player(Entity):
         self.dim = Vec2(32,32)
         super(Player, self)._listen("event", self.event)
         self.health = 3
+        self.move_cooldown = -pygame.time.get_ticks()
     def event(self, e):
         if(e.type == pygame.KEYDOWN):
             if(e.key in [pygame.K_DOWN, pygame.K_UP, pygame.K_LEFT, pygame.K_RIGHT]):
@@ -116,8 +129,9 @@ class Player(Entity):
                     self.facing = Vec2(self.dim.x, 0)
                 elif(e.key == pygame.K_LEFT):
                     self.facing = Vec2(-self.dim.x, 0)
-                # move if legal
-                if(self.floor.is_legal_move(self, self.facing)):
+                # move if legal, and allowed by cooldown
+                if(self.floor.is_legal_move(self, self.facing)) and pygame.time.get_ticks() > self.move_cooldown:
+                    self.move_cooldown = pygame.time.get_ticks()+50
                     self.relative_position = self.relative_position + self.facing
             # projectile test
             else:
@@ -125,7 +139,8 @@ class Player(Entity):
                     self.floor.add_entity(Projectile((self.relative_position), 16, self.facing.unit(), self))
     def _render(self):
         gpos: Vec2 = self.floor.get_global_position(self.relative_position)
-        pygame.draw.rect(self.surface, (255,255,0), pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
+        colour = (255,255,0)
+        pygame.draw.rect(self.surface, colour, pygame.Rect(gpos.x, gpos.y, self.dim.x, self.dim.x))
 class Enemy(Entity):
     def __init__(self, ipos:Vec2=Vec2(0,0), colour=(255,0,0), health=3, speed=1):
         Entity.__init__(self)
@@ -147,7 +162,7 @@ class Enemy(Entity):
         # fire bullets every 2.25 seconds
         self._listen_on_interval((9/4)/self.speed,self.fire_projectile)
         # move based on player location, every 1/2 seconds
-        self._listen_on_interval((1/2)/self.speed,self.move)
+        self._listen_on_interval((1)/self.speed,self.move)
         
 
     def fire_projectile(self):
@@ -231,8 +246,9 @@ class Projectile(Entity):
             self.destroy()
         if(isinstance(c.entity, Player)):
             # access the game logic, and player data, to update health safely
-            player: PlayerInfo = gameLogic.get_component("PlayerInfo")
-            player.inc_health(-self.damage)
+            player: PlayerInfo = gDB.get("PlayerInfo")
+            if(gDB.get("playerprot").value == 0):
+                player.inc_health(-self.damage)
             self.destroy()
         # bullets can't pass through solid objects
         if(c.entity.solid == True):
@@ -260,7 +276,7 @@ class Powerup(Entity):
         # give the player more health
         if(isinstance(c.entity, Player)):
             # access the game logic, and player data, to update health safely
-            player: PlayerInfo = gameLogic.get_component("PlayerInfo")
+            player: PlayerInfo = gDB.get("PlayerInfo")
             player.inc_health(self.val)
             self.destroy()
     # render in one place.    
@@ -280,7 +296,6 @@ class GameFloor(EntityFloor):
         self._listen("render", self.render)
         self._listen("event", self.event)
         self._listen("tick", self.tick)
-        self.stage = 0
     def event(self, e):
         if e.type == pygame.KEYDOWN:
             # debug keys start with Ctrl
@@ -288,24 +303,23 @@ class GameFloor(EntityFloor):
                 if e.key == pygame.K_r:
                     self.reset()
                 if e.key == pygame.K_t:
-                    self.stage+=1
-                    self.start(self.stage)
+                    self.load_level(Level(parse_emap(gen()), {'1':Wall, '2':Enemy, '3':Powerup, '4':(lambda: (Enemy(colour=(25,0,0), speed=3, health=2)))}))
     def render(self):
-        stage_text = tiny5.render(str(self.stage), False, (255,255,255))
+        stage_text = tiny5.render(str(gDB.get("stage").value), False, (255,255,255))
         self.surface.blit(stage_text, self.get_global_position(Vec2(8,0)).arr())
     def tick(self):
         if(self.count([Tag.enemy]) == 0):
-            self.stage+=1
-            self.start(self.stage)
-        pass
+            stage: Number = gDB.get("stage")
+            stage.inc()
+            self.start(stage.value)
     # initialize a sample level with 4 entities at random grid positions
     def start(self, stage=0):
-        if(stage == 0):
-            self.load_level(Level(parse_efile("maps/l1.txt"), {'1':Wall, '2':Enemy, '3':Powerup, '4':(lambda: (Enemy(colour=(25,0,0), speed=3, health=2)))}))
-        elif(stage == 1):
-            self.load_level(Level(parse_efile("maps/l2.txt"), {'1':Wall, '2':Enemy}))
-        elif(stage == 2):
-            self.load_level(Level(parse_efile("maps/l3.txt"), {'1':Wall, '2':Enemy}))
+        def reset_prot():
+            gDB.get("playerprot").value = 0
+        gDB.get("playerprot").value = 1
+        self._listen_on_interval(5, reset_prot,1)
+
+        self.load_level(Level(parse_emap(gen()), {'1':Wall, '2':Enemy, '3':Powerup, '4':(lambda: (Enemy(colour=(25,0,0), speed=3, health=2)))}))
 
 # initialize game render system (level1,2,3+)
 # level 1        
