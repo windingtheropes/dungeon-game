@@ -9,6 +9,8 @@ from veclib import Vec2
 class LogicComponent:
     def __init__(self, name:str):
         self.name = name
+    def reset(self):
+        pass
 class PlayerInfo(LogicComponent):
     def __init__(self, name:str, max_health=3):
         LogicComponent.__init__(self, name)
@@ -22,23 +24,26 @@ class PlayerInfo(LogicComponent):
             self.health = 0
         else:
             self.health += amt
+class Number(LogicComponent):
+    def __init__(self, name:str, initial=0):
+        LogicComponent.__init__(self, name)
+        self.value = initial
+    def inc(self, by=1):
+        self.value += by 
+    def dec(self, by=1):
+        self.value -= by
 # designed for passive access to universal game information
 class Logic():
     def __init__(self):
-        self.components = []
+        self.components = {}
         # Listener.__init__(self)
-    def get_component(self, name:str) -> LogicComponent:
-        c: LogicComponent
-        for c in self.components:
-            if c.name == name:
-                return c
-        return None
-    def add_component(self, component: LogicComponent):
-        if self.get_component(component.name):
+    def get(self, name:str) -> LogicComponent:
+        return self.components[name]
+    def set(self, component: LogicComponent):
+        if self.components.get(component.name) != None:
             return blogger.blog().warn(f"Component with name {component.name} already registered.")
         else:
-            self.components.append(component)
-
+            self.components.update({component.name:component})
 class Tag(Enum):
     enemy="enemy"
     barrier="barrier"
