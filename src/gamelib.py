@@ -41,7 +41,7 @@ class Logic():
         return self.components[name]
     def set(self, component: LogicComponent):
         if self.components.get(component.name) != None:
-            return blogger.blog().warn(f"Component with name {component.name} already registered.")
+            self.components[component.name] = component
         else:
             self.components.update({component.name:component})
 class Tag(Enum):
