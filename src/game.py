@@ -10,6 +10,7 @@ from levelslib import Level, parse_efile, parse_emap
 from levelgen import gen
 import veclib
 import random
+import clocklib
 from veclib import Vec2
 # initialize blogger for global use
 blogger.init("log/log")
@@ -19,14 +20,15 @@ pygame.init()
 pygame.font.init()
 tiny5 = pygame.font.Font('fonts/tiny5.ttf', 30)
 
+clocklib.clock = clocklib.Clock()
 clock = pygame.time.Clock()
 game_screen = pygame.display.set_mode([512,512])
 pygame.display.set_caption("Dungeon Game")
 frame_rate = 24
 gDB = Logic()
+gDB.set(Number("highscore",0))
 def resetGDB():
     global gDB
-    gDB = Logic()
     gDB.set(PlayerInfo("PlayerInfo", 3))
     gDB.set(Number("playerprot"))
     gDB.set(Number("stage"))
@@ -101,7 +103,7 @@ class GameOverText(Layer):
         super(GameOverText, self)._listen("render", self.render)
         self.dim = Vec2(512,512)
     def render(self, s:pygame.Surface):
-        gameover_text = tiny5.render("GAME OVER", False, (255,255,255))
+        gameover_text = tiny5.render(f"GAME OVER  |  HIGH SCORE { str( gDB.get('highscore').value ) }", False, (255,255,255))
         r = gameover_text.get_rect()
         self.surface.blit(gameover_text, Vec2(256-(r.width/2), 256-(r.height/2)).arr())
        
@@ -220,6 +222,8 @@ class MainScreen(Screen):
         if(self.gamefloor_index != -1):
             gamefloor = self.layers[self.gamefloor_index]
             if(gamefloor.gameover == True):
+                if(gDB.get("stage").value > gDB.get("highscore").value):
+                    gDB.set(Number("highscore", gDB.get("stage").value))
                 self.add_layer(GameOverText())
                 self._listen_on_interval(2500, self.reset, 1)
             # if game is paused, check if the paused_overlay already handled it before turning on the paused overlay
@@ -261,7 +265,7 @@ class Player(Entity):
         self.dim = Vec2(32,32)
         super(Player, self)._listen("event", self.event)
         self.health = 3
-        self.move_cooldown = -pygame.time.get_ticks()
+        self.move_cooldown = -clocklib.clock.ticks()
     def event(self, e):
         if(e.type == pygame.KEYDOWN):
             if(e.key in [pygame.K_DOWN, pygame.K_UP, pygame.K_LEFT, pygame.K_RIGHT]):
@@ -274,8 +278,8 @@ class Player(Entity):
                 elif(e.key == pygame.K_LEFT):
                     self.facing = Vec2(-self.dim.x, 0)
                 # move if legal, and allowed by cooldown
-                if(self.floor.is_legal_move(self, self.facing)) and pygame.time.get_ticks() > self.move_cooldown:
-                    self.move_cooldown = pygame.time.get_ticks()+50
+                if(self.floor.is_legal_move(self, self.facing)) and clocklib.clock.ticks() > self.move_cooldown:
+                    self.move_cooldown = clocklib.clock.ticks()+50
                     self.relative_position = self.relative_position + self.facing
             # projectile test
             else:
@@ -465,7 +469,7 @@ class GameFloor(EntityFloor):
         def reset_prot():
             gDB.get("playerprot").value = 0
         gDB.get("playerprot").value = 1
-        self._listen_on_interval(5000, reset_prot,1)
+        self._listen_on_interval(1750, reset_prot,1)
         stage: Number = gDB.get("stage")
         # scale speed of enemies logarithmically
         speed = lambda x: math.log10(2*(x+1)) + 0.40
