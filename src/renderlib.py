@@ -36,11 +36,11 @@ class Listener():
         else:
             blogger.blog.warn(f"{self.__class__.__name__}) Event {eventName} does not exist on {self.__class__.__name__}.")
     # interval in s
-    def _listen_on_interval(self, interval, fun, rep=0):
+    def _listen_on_interval(self, interval, fun, rep=0): # in ms
         if not interval:
             return blogger.blog.error(f"{self.__class__.__name__}) No interval passed for interval listeners.")
         if fun != None and type(fun) in [types.MethodType, types.FunctionType]:
-            self.interval_listeners.append(IntervalFunction(fun, interval*1000, rep, pygame.time.get_ticks()))
+            self.interval_listeners.append(IntervalFunction(fun, interval, rep, pygame.time.get_ticks()))
         else:
             blogger.blog.warn(f"{self.__class__.__name__}) Function passed for interval listener is not a function.")
     # reset all interval listeners to now, so they will wait for their specified interval to run. useful for new game stages.
@@ -54,10 +54,10 @@ class Listener():
             now = pygame.time.get_ticks()
             int_fun: IntervalFunction
             # if there's a limit on how many times this listener will run, and it's been hit, remove the listener and continue checking for others
-            if(int_fun.repeats != 0 and int_fun.runs == int_fun.repeats):
+            if(int_fun.repeats != 0 and int_fun.runs >= int_fun.repeats):
                 self.interval_listeners.remove(int_fun)
                 continue
-            if(now - int_fun.last) >= int_fun.interval:
+            elif(now - int_fun.last) >= int_fun.interval:
                 int_fun.last = now
                 int_fun.fun()
                 if(int_fun.repeats != 0):
@@ -114,6 +114,7 @@ class Screen(Renderer):
         Renderer.__init__(self)
         self.render_screen = True
         self.layers = deque()
+        self.background_colour = (0,0,0)
         self.surface:pygame.surface = surface;
     # clear the screen
     def _clear(self):
@@ -135,6 +136,8 @@ class Screen(Renderer):
             self.layers.append(layer)
         # listen
         # super(newscreen, self)._listen("render", self.render)
+        # return the index of the added layer
+        return len(self.layers)-1
     # methods overriden from Renderer class, MUST MATCH SIGNATURE
     def _event(self, e):
         # prevent lockout by running screen events above layer events
@@ -161,8 +164,8 @@ class Screen(Renderer):
             return self.surface
         # ensure that tick events can run on the screen
         self._tick()
-        # render the background color as a backup, in order to prevent unexpected behaviour
-        # self.surface.fill((0,0,0))
+        # render the background colour as a backup, in order to prevent unexpected behaviour
+        self.surface.fill(self.background_colour)
         # if no registered listener is present, default behaviour is to render all active layers
         l: Layer
         for l in self.layers:
