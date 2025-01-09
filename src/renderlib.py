@@ -7,6 +7,7 @@ import blogger
 import time
 import random
 import pygame
+import clocklib
 from veclib import Vec2, Ray
 from levelslib import Level
 # from util import get_highest_of_arr, get_lowest_of_arr, arr_ascending, arr_descending
@@ -22,6 +23,8 @@ class IntervalFunction:
         self.runs = 0
 class Listener(): 
     def __init__(self):
+        # allow for the clock source to be overriden by something else.
+        self.clock = pygame.time.get_ticks
         # listeners must be initialized as None in order to be considered valid
         self.listeners = {"tick":None}
         self.interval_listeners = []
@@ -40,18 +43,18 @@ class Listener():
         if not interval:
             return blogger.blog.error(f"{self.__class__.__name__}) No interval passed for interval listeners.")
         if fun != None and type(fun) in [types.MethodType, types.FunctionType]:
-            self.interval_listeners.append(IntervalFunction(fun, interval, rep, pygame.time.get_ticks()))
+            self.interval_listeners.append(IntervalFunction(fun, interval, rep, self.clock()))
         else:
             blogger.blog.warn(f"{self.__class__.__name__}) Function passed for interval listener is not a function.")
     # reset all interval listeners to now, so they will wait for their specified interval to run. useful for new game stages.
     def reset_interval_listeners(self): 
         for int_fun in self.interval_listeners:
-            now = pygame.time.get_ticks()
+            now = self.clock()
             int_fun: IntervalFunction
             int_fun.last == now
     def _tick(self):
         for int_fun in self.interval_listeners:
-            now = pygame.time.get_ticks()
+            now = self.clock()
             int_fun: IntervalFunction
             # if there's a limit on how many times this listener will run, and it's been hit, remove the listener and continue checking for others
             if(int_fun.repeats != 0 and int_fun.runs >= int_fun.repeats):
@@ -182,6 +185,7 @@ class Entity(Layer):
         Layer.__init__(self)
         # tells parent to kill this item
         self._del = False
+        # self.clock = clocklib.clock.ticks
         # will collisions be calculated for this entity
         self.collidable = True
         # if solid, most items cannot pass through this entity
@@ -231,19 +235,24 @@ class EntityFloor(Layer):
         Layer.__init__(self)
         self.entities = deque()
         self.pos: Vec2 = Vec2(64,64)
+        # self.clock = clocklib.clock.ticks
         self.background_colour = (20,20,40)
         # grid dimensions, as a reference unit for certain calculations
         self.gameover = False
         self.gdim = 32
         self.player: Entity = None;
         self.dim: Vec2 = Vec2(384,384)
+        
     def pause_unpause(self):
         self.paused = not self.paused
     # layer does not have built in functionality for handling layers within (layer 3.1), so it must be added like it is implemented in screens (layer 2)
     def _render(self):
         if self.paused == True:
+            clocklib.clock.frozen = True
             return
-        
+        else:
+            clocklib.clock.frozen = False
+
         # backdrop
         bd = pygame.Surface(self.dim.arr())
         bd.fill(self.background_colour)
