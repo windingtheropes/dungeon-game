@@ -45,7 +45,13 @@ def getOpenings(coord, level):
         if level[r][c] == 0:
             openings.append([r,c])
     return openings
-
+def getEmptyCells(level):
+    coords = []
+    for r in range(0, len(level)):
+        for c in range(0,len(level[r])):
+            if level[r][c] == 0:
+                coords.append([r, c])
+    return coords
 # def count_trail(point, level):
 def emptycount(level):
     count = 0
@@ -54,6 +60,16 @@ def emptycount(level):
             if c == 0:
                 count+=1
     return count
+# of a list of spaces, only return those that have openings on x (thresh) sides
+def getWideSpace(spaces, level, thresh=2):
+    spaces: list
+    s = spaces[random.randint(0, len(spaces)-1)]
+    if(len(getOpenings(s, level)) >= thresh):
+        return s
+    else:
+        spaces.remove(s)
+        return getWideSpace(spaces, level)
+
 # generate a level, procedurally
 def gen():
     level = []
@@ -80,25 +96,21 @@ def gen():
                         level[r][c] = 1;
                     continue
 
-    enrem = 3
-    crem = emptycount(level)
-    for r in range(1,len(level)-1):
-        for c in range(1, len(level[r])-1):
-            opencoords = getOpenings([r,c], level)
-            if(len(opencoords) >= 1) and (level[r][c] == 0):
-                if chance(crem) and enrem > 0:
-                    level[r][c] = 2
-                    enrem-=1
-                    crem-=1
-                else:
-                    crem-=1
-            else:
-                # make sure to make powerups available in open locations
-                if(chance(3) and len(getOpenings([r,c], level)) != 0):
-                    level[r][c] = 3
+    openSpaces = getEmptyCells(level)
+    for i in range(0, random.randint(0,6)):
+        s = getWideSpace(openSpaces, level)
+        level[s[0]][s[1]] = "3"
 
-                 
-    level[5][5] = "p"
+    openSpaces = getEmptyCells(level)
+    for i in range(0, random.randint(2,4)):
+        s = getWideSpace(openSpaces, level)
+        level[s[0]][s[1]] = "2"
+
+    openSpaces = getEmptyCells(level)
+    s = openSpaces[random.randint(0, len(openSpaces)-1)]
+    level[s[0]][s[1]] = "p"
+
+    # level[5][5] = "p"
     stringform = ""
     for r in range(0,len(level)):
         for c in range(0,len(level[r])):
