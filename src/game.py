@@ -3,6 +3,7 @@
 # contains custom class implementations and functions specific to game functionality 
 import pygame
 import blogger
+import math
 from renderlib import Screen, Layer, Entity, Collision, EntityFloor
 from gamelib import PlayerInfo, Number, Logic, Tag
 from levelslib import Level, parse_efile, parse_emap
@@ -20,12 +21,16 @@ tiny5 = pygame.font.Font('fonts/tiny5.ttf', 30)
 
 clock = pygame.time.Clock()
 game_screen = pygame.display.set_mode([512,512])
-
+pygame.display.set_caption("Dungeon Game")
 frame_rate = 24
 gDB = Logic()
-gDB.set(PlayerInfo("PlayerInfo", 3))
-gDB.set(Number("playerprot"))
-gDB.set(Number("stage"))
+def resetGDB():
+    global gDB
+    gDB = Logic()
+    gDB.set(PlayerInfo("PlayerInfo", 3))
+    gDB.set(Number("playerprot"))
+    gDB.set(Number("stage"))
+resetGDB()
 # level 1
 class Game():
     def __init__(self):
@@ -38,13 +43,17 @@ class Game():
         # start render loop
         while self.running == True:
             screen: Screen
-            for screen in self.screens:
-                if(screen.active == True):
-                    if(self.active_screen != None and screen.id == self.active_screen.id):
-                        pass
-                    else:
-                        self.active_screen = screen
-                        screen._start()
+            # don't check for new active screens if the current one is still active
+            if self.active_screen != None and self.active_screen.active == True:
+                pass
+            else:
+                for screen in self.screens:
+                    if(screen.active == True):
+                        if(self.active_screen != None and screen.id == self.active_screen.id):
+                            pass
+                        else:
+                            self.active_screen = screen
+                            screen._start()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
@@ -85,30 +94,165 @@ class DataBar(Layer):
                     pygame.draw.rect(self.surface, self.full_colour, pygame.Rect(64+i*32, 448+16,32, 32))
             else:
                 pygame.draw.rect(self.surface, self.empty_colour, pygame.Rect(64+i*32, 448+16,32, 32))
-        
+
+class GameOverText(Layer):
+    def __init__(self):
+        Layer.__init__(self)
+        super(GameOverText, self)._listen("render", self.render)
+        self.dim = Vec2(512,512)
+    def render(self, s:pygame.Surface):
+        gameover_text = tiny5.render("GAME OVER", False, (255,255,255))
+        r = gameover_text.get_rect()
+        self.surface.blit(gameover_text, Vec2(256-(r.width/2), 256-(r.height/2)).arr())
+       
+class PausedOverlay(Layer):
+    def __init__(self):
+        Layer.__init__(self)
+        super(PausedOverlay, self)._listen("render", self.render)
+        self._listen("event", self.event)
+        self.active = False
+        self.selected = 0
+        self.exit_code = -1
+        self.selected_colour =  (255,50,50)
+        self.unselected_colour = (255,255,250)
+        self.dim = Vec2(512,512)
+    def event(self, e):
+        if(self.active == False):
+            return
+        if(e.type == pygame.KEYDOWN):
+            if e.key in [pygame.K_DOWN, pygame.K_UP]:
+                self.change_selected()
+            if e.key == pygame.K_RETURN:
+                self.exit_code = self.selected
+                self.active = False
+    def change_selected(self):
+        if(self.selected == 1):
+            self.selected = 0
+        else:
+            self.selected = 1
+    # return appropriate colour (selected or unselected) based on the identifier, id, and self.selected colour
+    def sel_col(self, id):
+        if self.selected == id:
+            return self.selected_colour
+        return self.unselected_colour
+    def render(self, s:pygame.Surface):
+        if(self.active == False):
+            return
+        title_text = tiny5.render("PAUSED", False, (255,255,250))
+        main_menu_text = tiny5.render("MAIN MENU", False, self.sel_col(0))
+        exit_text = tiny5.render("QUIT", False, self.sel_col(1))
+
+        ptr = title_text.get_rect()
+        uptr = title_text.get_rect()
+        etr = title_text.get_rect()
+
+        self.surface.blit(title_text, Vec2(256-(ptr.width/2), 256-(ptr.height/2)-uptr.height).arr())
+        self.surface.blit(main_menu_text, Vec2(256-(uptr.width/2), 256-(uptr.height/2)+ptr.height+5).arr())
+        self.surface.blit(exit_text, Vec2(256-(etr.width/2), 256-(etr.height/2)+ptr.height+uptr.height+5).arr())
+            
+
+class MainMenu(Layer):
+    def __init__(self):
+        Layer.__init__(self)
+        super(MainMenu, self)._listen("render", self.render)
+        self._listen("event", self.event)
+        self.selected = 0
+        self.selected_colour =  (50,255,50)
+        self.unselected_colour = (255,255,250)
+        self.dim = Vec2(512,512)
+        self.exit_code = -1
+    def change_selected(self):
+        if(self.selected == 1):
+            self.selected = 0
+        else:
+            self.selected = 1
+    def event(self, e):
+        if(self.active == False):
+            return
+        if(e.type == pygame.KEYDOWN):
+            if e.key in [pygame.K_DOWN, pygame.K_UP]:
+                self.change_selected()
+            if e.key == pygame.K_RETURN:
+                self.exit_code = self.selected
+                self.active = False
+    # return appropriate colour (selected or unselected) based on the identifier, id, and self.selected colour
+    def sel_col(self, id):
+        if self.selected == id:
+            return self.selected_colour
+        return self.unselected_colour
+    def render(self, s:pygame.Surface):
+        if(self.active == False):
+            return
+        title_text = tiny5.render("dungeon game by jack anderson", False, (255,255,250))
+        play_text = tiny5.render("PLAY", False, self.sel_col(0))
+        exit_text = tiny5.render("EXIT", False, self.sel_col(1))
+
+        ptr = title_text.get_rect()
+        uptr = title_text.get_rect()
+        etr = title_text.get_rect()
+
+        self.surface.blit(title_text, Vec2(256-(ptr.width/2), 256-(ptr.height/2)-uptr.height).arr())
+        self.surface.blit(play_text, Vec2(256-(uptr.width/2), 256-(uptr.height/2)+ptr.height+5).arr())
+        self.surface.blit(exit_text, Vec2(256-(etr.width/2), 256-(etr.height/2)+ptr.height+uptr.height+5).arr())
+            
 class MainScreen(Screen):
     def __init__(self):
         Screen.__init__(self, pygame.Surface((512,512)))
         self._listen("event", self.event)
         self._listen("start", self.start)
         self._listen("tick", self.tick)
-        self.gamefloor: GameFloor
-    def start(self):
-        self.gamefloor = GameFloor()
-        self.add_layer(self.gamefloor)
+        self.pause_overlay_index = -1
+        self.main_menu_index = -1
+        self.gamefloor_index = -1
+    def start_game(self):
+        resetGDB()
+        gamefloor = GameFloor()
+        self.gamefloor_index = self.add_layer(gamefloor)
         self.add_layer(DataBar())
-        self.gamefloor.add_player(Player())
+        gamefloor.add_player(Player())
+    def start(self):
+        # initialize perpetual layers (outside of game)
+        self.main_menu_index = self.add_layer(MainMenu())
+        self.layers[self.main_menu_index].active = True
+        self.pause_overlay_index = self.add_layer(PausedOverlay())
+
     def tick(self):
-        if(self.gamefloor.gameover == True):
-            self.reset()
+        if(self.gamefloor_index != -1):
+            gamefloor = self.layers[self.gamefloor_index]
+            if(gamefloor.gameover == True):
+                self.add_layer(GameOverText())
+                self._listen_on_interval(2500, self.reset, 1)
+            # if game is paused, check if the paused_overlay already handled it before turning on the paused overlay
+            # prevents an infinite loop and allows exchange of info
+            elif(gamefloor.paused == True):
+                pause_overlay = self.layers[self.pause_overlay_index]
+                if(pause_overlay.active == False and pause_overlay.exit_code != -1):
+                    if pause_overlay.exit_code == 0:
+                        pause_overlay.active = False
+                        self.reset()
+                    elif pause_overlay.exit_code == 1:
+                        quit()
+                else:
+                    self.layers[self.pause_overlay_index].active = True
+
+        main_menu = self.layers[self.main_menu_index]
+        # handle the main menu if it returned
+        # reset its exit code so that this doesn't trigger again
+        if(main_menu.active == False):
+            if(main_menu.exit_code == 0):
+                self.start_game()
+            elif(main_menu.exit_code == 1):
+                quit()  
+            main_menu.exit_code = -1  
     def reset(self):
-        self._clear()
+        self.layers.clear()
+        self.gamefloor_index = -1
         self.start()
-        gDB.reset()
     def event(self, e):
         if(e.type == pygame.KEYDOWN):
             if e.key == pygame.K_ESCAPE:
-                self.gamefloor.pause_unpause()
+                if(self.gamefloor_index != -1):
+                    self.layers[self.gamefloor_index].pause_unpause()
 
 # Entity floor
 class Player(Entity):
@@ -158,19 +302,22 @@ class Enemy(Entity):
         # elim any errors by not having initial idea of where player is
         # self.find_player()
         # find the player every 2 seconds, prop to speed
-        self._listen_on_interval((2)/self.speed,self.find_player)
+        # seed ensures that the movement isn't all in sync
+        self.seed = random.randint(0,250) # ms
+        self._listen_on_interval((1000+self.seed)/self.speed,self.find_player)
         # fire bullets every 2.25 seconds
-        self._listen_on_interval((9/4)/self.speed,self.fire_projectile)
+        self._listen_on_interval((2250+self.seed)/self.speed,self.fire_projectile)
         # move based on player location, every 1/2 seconds
-        self._listen_on_interval((1)/self.speed,self.move)
+        self._listen_on_interval((500+self.seed)/self.speed,self.move)
         
-
+    # def s
     def fire_projectile(self):
         # cast a ray in the direction of the player, if there's a wall in between don't shoot; can't see through it :)
-        entity_in_front = self.floor.raycast(self, self.dir)
-        if entity_in_front:
-            if Tag.barrier in entity_in_front.tags:
-                return
+        # causes terrible performance
+        # entity_in_front = self.floor.raycast(self, self.dir)
+        # if entity_in_front:
+        #     if Tag.barrier in entity_in_front.tags:
+        #         return
         # offsetdir is a direction with magnitude 1 (unit vector), but has been randomly modified with a slight offset to make the game less impossible :)
         offsetdir:Vec2 = (self.dir + veclib.randvec2(Vec2(0,0), Vec2(1,1))).unit()
         self.floor.add_entity(Projectile(self.relative_position, 12, offsetdir, self))
@@ -301,25 +448,28 @@ class GameFloor(EntityFloor):
             # debug keys start with Ctrl
             if pygame.key.get_pressed()[pygame.K_LCTRL] or pygame.key.get_pressed()[pygame.K_LCTRL]:
                 if e.key == pygame.K_r:
-                    self.reset()
-                if e.key == pygame.K_t:
-                    self.load_level(Level(parse_emap(gen()), {'1':Wall, '2':Enemy, '3':Powerup, '4':(lambda: (Enemy(colour=(25,0,0), speed=3, health=2)))}))
+                    self.start()
     def render(self):
         stage_text = tiny5.render(str(gDB.get("stage").value), False, (255,255,255))
         self.surface.blit(stage_text, self.get_global_position(Vec2(8,0)).arr())
     def tick(self):
+        if(gDB.get("PlayerInfo").health <= 0):
+            self.paused=True
+            self.gameover=True
         if(self.count([Tag.enemy]) == 0):
             stage: Number = gDB.get("stage")
             stage.inc()
-            self.start(stage.value)
+            self.start()
     # initialize a sample level with 4 entities at random grid positions
-    def start(self, stage=0):
+    def start(self):
         def reset_prot():
             gDB.get("playerprot").value = 0
         gDB.get("playerprot").value = 1
-        self._listen_on_interval(5, reset_prot,1)
-
-        self.load_level(Level(parse_emap(gen()), {'1':Wall, '2':Enemy, '3':Powerup, '4':(lambda: (Enemy(colour=(25,0,0), speed=3, health=2)))}))
+        self._listen_on_interval(5000, reset_prot,1)
+        stage: Number = gDB.get("stage")
+        # scale speed of enemies logarithmically
+        speed = lambda x: math.log10(2*(x+1)) + 0.40
+        self.load_level(Level(parse_emap(gen()), {'1':Wall, '2':(lambda: (Enemy(colour=(255,0,0), speed=speed(stage.value), health=2))), '3':Powerup, '4':(lambda: (Enemy(colour=(25,0,0), speed=3, health=2)))}))
 
 # initialize game render system (level1,2,3+)
 # level 1        
