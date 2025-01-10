@@ -2,3 +2,5 @@ src/log/
 .venv/
 pyvenv.cfg
 __pycache__/
+dist
+build

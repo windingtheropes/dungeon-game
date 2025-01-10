@@ -1,6 +1,7 @@
 # dungeon game by Jack Anderson
 # 11/20/24
 # contains custom class implementations and functions specific to game functionality 
+import urllib.request
 import pygame
 import blogger
 import math
@@ -11,15 +12,19 @@ from levelgen import gen
 import veclib
 import random
 import clocklib
+from sys import exit
 from veclib import Vec2
 # initialize blogger for global use
 blogger.init("log/log")
 blog = blogger.blog()
+import urllib
 
+# download font
+urllib.request.urlretrieve("https://fonts.gstatic.com/s/tiny5/v3/KFOpCnmCvdGT7hw-z0hHAi88.ttf", ".font_dg")
 pygame.init()
 pygame.font.init()
-tiny5 = pygame.font.Font('fonts/tiny5.ttf', 30)
-tiny5_20 = pygame.font.Font('fonts/tiny5.ttf', 20)
+tiny5 = pygame.font.Font('./.font_dg', 30)
+tiny5_20 = pygame.font.Font('./.font_dg', 20)
 
 clocklib.clock = clocklib.Clock()
 clock = pygame.time.Clock()
@@ -245,7 +250,7 @@ class MainScreen(Screen):
                         pause_overlay.active = False
                         self.reset()
                     elif pause_overlay.exit_code == 1:
-                        quit()
+                        exit()
                 else:
                     self.layers[self.pause_overlay_index].active = True
 
@@ -256,7 +261,7 @@ class MainScreen(Screen):
             if(main_menu.exit_code == 0):
                 self.start_game()
             elif(main_menu.exit_code == 1):
-                quit()  
+                exit()  
             main_menu.exit_code = -1  
     def reset(self):
         self.layers.clear()
