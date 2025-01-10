@@ -19,6 +19,7 @@ blog = blogger.blog()
 pygame.init()
 pygame.font.init()
 tiny5 = pygame.font.Font('fonts/tiny5.ttf', 30)
+tiny5_20 = pygame.font.Font('fonts/tiny5.ttf', 20)
 
 clocklib.clock = clocklib.Clock()
 clock = pygame.time.Clock()
@@ -103,9 +104,13 @@ class GameOverText(Layer):
         super(GameOverText, self)._listen("render", self.render)
         self.dim = Vec2(512,512)
     def render(self, s:pygame.Surface):
-        gameover_text = tiny5.render(f"GAME OVER  |  HIGH SCORE { str( gDB.get('highscore').value ) }", False, (255,255,255))
-        r = gameover_text.get_rect()
-        self.surface.blit(gameover_text, Vec2(256-(r.width/2), 256-(r.height/2)).arr())
+        gameover_text = tiny5.render(f"GAME OVER | SCORE {str(gDB.get('stage').value)}", False, (255,255,255))
+        highscore_text = tiny5.render(f"HIGH SCORE { str( gDB.get('highscore').value ) }", False, (255,255,255))
+        gor = gameover_text.get_rect()
+        hsor = gameover_text.get_rect()
+
+        self.surface.blit(gameover_text, Vec2(256-(gor.width/2), 256-(gor.height/2)).arr())
+        self.surface.blit(highscore_text, Vec2(256-(hsor.width/2), 256-(hsor.height/2)+gor.height).arr())
        
 class PausedOverlay(Layer):
     def __init__(self):
@@ -185,17 +190,22 @@ class MainMenu(Layer):
     def render(self, s:pygame.Surface):
         if(self.active == False):
             return
+        
         title_text = tiny5.render("dungeon game by jack anderson", False, (255,255,250))
+        inst_text = tiny5_20.render("Move with arrow keys | E to shoot | Esc to pause", False, (255,255,250))
         play_text = tiny5.render("PLAY", False, self.sel_col(0))
         exit_text = tiny5.render("EXIT", False, self.sel_col(1))
 
         ptr = title_text.get_rect()
+        itr = inst_text.get_rect()
         uptr = title_text.get_rect()
         etr = title_text.get_rect()
 
+        # stack titles ontop of each other with some padding (5 pixels)
         self.surface.blit(title_text, Vec2(256-(ptr.width/2), 256-(ptr.height/2)-uptr.height).arr())
-        self.surface.blit(play_text, Vec2(256-(uptr.width/2), 256-(uptr.height/2)+ptr.height+5).arr())
-        self.surface.blit(exit_text, Vec2(256-(etr.width/2), 256-(etr.height/2)+ptr.height+uptr.height+5).arr())
+        self.surface.blit(inst_text, Vec2(256-(ptr.width/2), 256-(ptr.height/2)+uptr.height+5).arr())
+        self.surface.blit(play_text, Vec2(256-(uptr.width/2), 256-(uptr.height/2)+itr.height+ptr.height+5).arr())
+        self.surface.blit(exit_text, Vec2(256-(etr.width/2), 256-(etr.height/2)+itr.height+ptr.height+uptr.height+5).arr())
             
 class MainScreen(Screen):
     def __init__(self):
@@ -387,9 +397,10 @@ class Projectile(Entity):
         self.solid = False
         self.damage = damage
     def _collision(self, c: Collision):
-        # don't damage the entity which shot the projectile
-        if(c.entity == self.source):
+        # don't damage the entity which shot the projectile, or same type (enemies can't shoot each other)
+        if(c.entity == self.source) or (type(c.entity) == type(self.source)):
             return
+        # print(type(c.entity) == type(self.source))
         # only deal damage to other entities if the bullet came from the player (enemies can't hurt each other)
         if(isinstance(c.entity, Enemy) and isinstance(self.source, Player)):
             # reduce health of entity by the damage of the bullet
@@ -447,6 +458,7 @@ class GameFloor(EntityFloor):
         self._listen("render", self.render)
         self._listen("event", self.event)
         self._listen("tick", self.tick)
+        # self.clock = clocklib.clock.ticks
     def event(self, e):
         if e.type == pygame.KEYDOWN:
             # debug keys start with Ctrl
@@ -472,7 +484,7 @@ class GameFloor(EntityFloor):
         self._listen_on_interval(1750, reset_prot,1)
         stage: Number = gDB.get("stage")
         # scale speed of enemies logarithmically
-        speed = lambda x: math.log10(2*(x+1)) + 0.40
+        speed = lambda x: 1.123*math.log10(3*(x+1)) + 0.16
         self.load_level(Level(parse_emap(gen()), {'1':Wall, '2':(lambda: (Enemy(colour=(255,0,0), speed=speed(stage.value), health=2))), '3':Powerup, '4':(lambda: (Enemy(colour=(25,0,0), speed=3, health=2)))}))
 
 # initialize game render system (level1,2,3+)
