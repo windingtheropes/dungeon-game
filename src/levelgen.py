@@ -1,6 +1,7 @@
 import random
 import os
 import time
+import levelslib
 # levels are always 12 by 12
 
 # calculate the 4 positions that are adjacent to a point, defined by row column coordinates
@@ -13,13 +14,13 @@ def adjacent_coords(r, c):
         possibilities.append([r-1, c])
 
     # if not bottom row, a col in row below is adjacent
-    if r == 11:
+    if r >= 11:
         pass
     else:
         possibilities.append([r+1, c])
 
     # if not end of row, column right has an adjacent
-    if c == 11:
+    if c >= 11:
         pass
     else:
         possibilities.append([r, c+1])
@@ -29,22 +30,26 @@ def adjacent_coords(r, c):
         pass
     else:
         possibilities.append([r, c-1])
-
     return possibilities
 def chance(c): # 1 in c
     if(random.randint(1,c) == random.randint(1,c)):
         return True
     return False
 # find if a coordinate (cell) has openings next to it, accept dict of other values to return as well
-def getOpeningsOnCell(coord, level, dict=[0]):
+# if walkable is true, run with the assumption that the only impassable entity is a wall
+def getOpeningsOnCell(coord, level, walkable=False):
     openings = []
     adj = adjacent_coords(coord[0], coord[1])
     for a in adj:
         r = a[0]
         c = a[1]
-        if level[r][c] in dict:
+        # print([level[r][c]])
+        if walkable == False and str(level[r][c]) == "0":
+            openings.append([r,c])
+        elif walkable == True and str(level[r][c]) != "1":
             openings.append([r,c])
     return openings
+
 def getEmptyCellsOnLevel(level):
     coords = []
     for r in range(0, len(level)):
@@ -52,22 +57,16 @@ def getEmptyCellsOnLevel(level):
             if level[r][c] == 0:
                 coords.append([r, c])
     return coords
-# def count_trail(point, level):
-def emptycount(level):
-    count = 0
-    for r in level:
-        for c in r:
-            if c == 0:
-                count+=1
-    return count
 
-# recursively find all cells in a 'cave' by checking for openings, and the player
-def getAllAccessible(coord, level, counted=[]):
-    openings = getOpeningsOnCell(coord, level, [0,"p"])
+# recursively find all cells in a 'cave' by checking for openings (not walls)
+def getAllAccessible(coord, level, counted=None):
+    if(counted == None):
+        counted = []
+    openings = getOpeningsOnCell(coord, level, True)
     for o in openings:
         if not o in counted:
-            counted.append(o)
-            return getAllAccessible(o, level, counted)
+            counted.append(o) 
+            counted = getAllAccessible(o, level, counted)
     return counted
 # array of coords to array of values 
 def toValue(arr, level):
@@ -93,7 +92,8 @@ def getPlayerAccessibleSpace(level, openSpaces):
     if not "p" in toValue(getAllAccessible(s, level), level):
         openSpaces.remove(s)
         return getPlayerAccessibleSpace(level, openSpaces)
-    return s
+    else:
+        return s
 
 # generate a level, procedurally
 def gen():
@@ -122,21 +122,22 @@ def gen():
                     continue
     
     openSpaces = getEmptyCellsOnLevel(level)
-    s = getWideSpace(openSpaces, level)
-    level[s[0]][s[1]] = "p"
-    for i in openSpaces:
-        print(toValue(getAllAccessible(i, level), level))
-    openSpaces = getEmptyCellsOnLevel(level)
-    for i in range(0, random.randint(0,6)):
-        s = getPlayerAccessibleSpace(level, openSpaces)
-        level[s[0]][s[1]] = "3"
+    player_pos = getWideSpace(openSpaces, level)
+    level[player_pos[0]][player_pos[1]] = "p"    
+
+    # if the spawn space is too small, regen
+    if(len(getAllAccessible(player_pos, level)) < 20):
+        return gen()
 
     openSpaces = getEmptyCellsOnLevel(level)
     for i in range(0, random.randint(2,4)):
-        s = getPlayerAccessibleSpace(level, openSpaces)
-        level[s[0]][s[1]] = "2"
+        player_pos = getPlayerAccessibleSpace(level, openSpaces)
+        level[player_pos[0]][player_pos[1]] = "2"
 
-    
+    openSpaces = getEmptyCellsOnLevel(level)
+    for i in range(0, random.randint(0,6)):
+        player_pos = getPlayerAccessibleSpace(level, openSpaces)
+        level[player_pos[0]][player_pos[1]] = "3"
     stringform = ""
     for r in range(0,len(level)):
         for c in range(0,len(level[r])):
@@ -144,14 +145,5 @@ def gen():
         if r == len(level)-1:
             continue
         stringform = stringform + "\n"
-    # print(stringform)
-    return stringform
 
-# while True:
-#     os.system("clear")
-#     level = gen()
-#     for i in level:
-#         for c in i:
-#             print(c, end="")
-#         print("")
-#     time.sleep(0.25)
+    return stringform
