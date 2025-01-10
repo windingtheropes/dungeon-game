@@ -1,22 +1,6 @@
 from veclib import Vec2
 import blogger
 
-# # parse an entity grid file into an array
-# def parse_efile(path):
-#     f = open(path, "r")
-#     grid = []
-#     lines = f.readlines()
-#     # every line is a row (y value)
-#     for l in lines:
-#         l = l.strip()
-#         row = []
-#         # every cell in a row is the x value
-#         for cell in l:
-#             row.append(cell)
-#         grid.append(row)
-#     f.close()    
-#     return grid
-
 def parse_efile(path):
     f = open(path, "r") 
     content = f.read()
